@@ -20,6 +20,7 @@ from androsync import __version__, config_edit, service, service_state, undo, ve
 from androsync.runlog import RunLog, tee as _tee_log
 from androsync.cli_conflicts import add_conflicts_commands
 from androsync.cli_pairs import add_pair_commands
+from androsync.cli_phones import add_phone_commands
 from androsync.config import Config, ConfigError, PairConfig, default_config_path, load_config
 from androsync.daemon.watcher import Daemon
 from androsync.executor import ExecutorError, run_pair
@@ -32,6 +33,7 @@ from androsync.transport.adb import (
     AdbError,
     AdbTransport,
     list_devices,
+    hardware_serial,
     resolve_device,
 )
 from androsync.transport.local import LocalDirTransport
@@ -164,6 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
     service.add_service_commands(subparsers, common)
     add_pair_commands(subparsers, common)
     add_conflicts_commands(subparsers, common)
+    add_phone_commands(subparsers, common)
 
     return parser
 
@@ -279,11 +282,14 @@ def cmd_devices(args: argparse.Namespace) -> int:
         print("No devices found (`adb devices -l` reported none).")
         print(NO_DEVICE_HINT)
     else:
-        print(f"{'':2}{'SERIAL':<24}{'STATE':<14}{'MODEL':<20}{'TRANSPORT':<10}")
+        print(f"{'':2}{'SERIAL':<24}{'STATE':<14}{'MODEL':<16}{'TRANSPORT':<10}{'ID':<18}NAME")
         for device in devices:
             mark = "*" if device.serial == picked else " "
             model = device.model or "-"
-            print(f"{mark:<2}{device.serial:<24}{device.state:<14}{model:<20}{device.transport:<10}")
+            phone_id = (hardware_serial(device.serial) if device.state == "device" else None) or device.serial
+            phone = config.phones.get(phone_id) or config.phones.get(device.serial)
+            name = (phone.name if phone is not None and phone.name else "-")
+            print(f"{mark:<2}{device.serial:<24}{device.state:<14}{model:<16}{device.transport:<10}{phone_id:<18}{name}")
 
     for device in devices:
         hint = DEVICE_STATE_HINTS.get(device.state)
@@ -461,7 +467,7 @@ def cmd_runs(args: argparse.Namespace) -> int:
     pairs = _select_pairs(config, [args.pair])
     pair = pairs[0]
 
-    runs = undo.list_runs(pair.name)
+    runs = undo.list_runs_all(pair.name)
     if not runs:
         print("no runs recorded yet")
         return 0
@@ -487,7 +493,7 @@ def cmd_undo(args: argparse.Namespace) -> int:
 
     run_id = args.run_id
     if run_id is None:
-        runs = undo.list_runs(pair.name)
+        runs = undo.list_runs_all(pair.name)
         if not runs:
             print(f"androsync: no runs recorded for pair {pair.name!r}", file=sys.stderr)
             return 2

@@ -815,10 +815,26 @@ def test_device_info_lists_every_known_device_with_its_state(tmp_path):
     )
     info = daemon.device_info()
     assert info["devices"] == [
-        {"serial": "192.168.1.20:5555", "state": "device", "transport": "tcp"},
-        {"serial": "RZ123", "state": "unauthorized", "transport": "usb"},
-        {"serial": "ZZ9", "state": "offline", "transport": "usb"},
+        {"serial": "192.168.1.20:5555", "state": "device", "transport": "tcp", "id": "192.168.1.20:5555", "name": None},
+        {"serial": "RZ123", "state": "unauthorized", "transport": "usb", "id": "RZ123", "name": None},
+        {"serial": "ZZ9", "state": "offline", "transport": "usb", "id": "ZZ9", "name": None},
     ]
+
+
+def test_device_info_gives_a_named_phone_its_name_and_hardware_id(tmp_path):
+    import types
+
+    from androsync.config import PhoneConfig
+
+    config = build_config(tmp_path, auto_sync=False)
+    config.phones["HW_A"] = PhoneConfig(name="S24 FE")
+    daemon = make_daemon(config)
+    daemon._config = config
+    daemon._hardware_serials["192.168.1.20:5555"] = "HW_A"
+    daemon._watcher = types.SimpleNamespace(devices={"192.168.1.20:5555": "device", "USB_B": "device"})
+    rows = {r["serial"]: r for r in daemon.device_info()["devices"]}
+    assert (rows["192.168.1.20:5555"]["id"], rows["192.168.1.20:5555"]["name"]) == ("HW_A", "S24 FE")
+    assert (rows["USB_B"]["id"], rows["USB_B"]["name"]) == ("USB_B", None)
 
 
 def test_device_info_has_an_empty_device_list_before_the_watcher_exists(tmp_path):

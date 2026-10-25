@@ -508,7 +508,8 @@ def _run_pair(
     note(f"laptop: {len(scan_local)} files; scanning the phone folder...")
     scan_remote = remote.scan(remote_root, ignore)
     note(f"phone: {len(scan_remote)} files; planning...")
-    snapshot: PersistedSnapshot = dict(state.load_snapshot(pair.name))
+    key = state.key_for(pair.name, remote)  # one history per phone (task 33a)
+    snapshot: PersistedSnapshot = dict(state.load_snapshot(key))
     snapshot_before_run = dict(snapshot)  # captured before any mutation, for the run's journal (task 30a)
 
     hasher = _make_hasher(local, remote, local_root, remote_root)
@@ -524,7 +525,7 @@ def _run_pair(
             snapshot[rel] = SnapshotEntry(
                 size=local_entry.size, mtime_local=local_entry.mtime, mtime_remote=remote_entry.mtime
             )
-    _save_pending_asks(pair.name, actions, scan_local, scan_remote)
+    _save_pending_asks(key, actions, scan_local, scan_remote)
     note(f"plan: {len(actions)} actions")
 
     problems = safety.check_plan(
@@ -547,7 +548,7 @@ def _run_pair(
             log(f"STOPPED, nothing was changed. {problem}")
         log("Check the list, then confirm to go ahead (app: Go ahead, command line: --confirm-large).")
         state.save_pair_meta(
-            pair.name,
+            key,
             {
                 "last_run": run_now.isoformat(),
                 "last_result": f"needs confirmation: {problems[0]}",
@@ -566,7 +567,7 @@ def _run_pair(
     journal: undo.RunJournal | None = None
     if pair.undo_enabled:
         journal = undo.RunJournal.start(
-            pair.name, snapshot_before_run, {"max_file_mb": pair.undo_max_file_mb}, kind="sync", now=run_now
+            key, snapshot_before_run, {"max_file_mb": pair.undo_max_file_mb}, kind="sync", now=run_now
         )
         summary.run_id = journal.run_id
 
@@ -587,7 +588,7 @@ def _run_pair(
             _flush_copy_batch(
                 pending_batch, transports, roots, scan_local, scan_remote, tmp_dir, snapshot, summary, log, journal
             )
-            state.save_snapshot(pair.name, snapshot)
+            state.save_snapshot(key, snapshot)
             pending_batch = []
             pending_bytes = 0
 
@@ -645,14 +646,14 @@ def _run_pair(
                 summary.errors += 1
                 continue
 
-            state.save_snapshot(pair.name, snapshot)
+            state.save_snapshot(key, snapshot)
 
         flush_batch()
 
     reconcile_snapshot(snapshot, scan_local, scan_remote, pair.mtime_tolerance_s)
-    state.save_snapshot(pair.name, snapshot)
+    state.save_snapshot(key, snapshot)
     state.save_pair_meta(
-        pair.name,
+        key,
         {
             "last_run": run_now.isoformat(),
             "last_result": str(summary),
@@ -662,7 +663,7 @@ def _run_pair(
 
     if journal is not None:
         journal.finish(summary)
-        undo.prune(pair.name, pair.undo_keep_runs, pair.undo_max_total_mb)
+        undo.prune(key, pair.undo_keep_runs, pair.undo_max_total_mb)
 
     if summary.errors == 0:
         try:
@@ -727,7 +728,8 @@ def resolve_pending(
 
     transports = {Side.LOCAL: local, Side.REMOTE: remote}
     roots = {Side.LOCAL: local_root, Side.REMOTE: remote_root}
-    snapshot: PersistedSnapshot = dict(state.load_snapshot(pair.name))
+    key = state.key_for(pair.name, remote)
+    snapshot: PersistedSnapshot = dict(state.load_snapshot(key))
     summary = Summary()
 
     with tempfile.TemporaryDirectory(prefix="androsync-resolve-") as tmp_dir_name:
@@ -769,6 +771,6 @@ def resolve_pending(
         )
         _do_copy(copy_action, transports, roots, {}, {}, tmp_dir, snapshot, summary)
 
-    state.save_snapshot(pair.name, snapshot)
-    pending = [entry for entry in state.load_pending(pair.name) if entry["rel"] != rel]
-    state.save_pending(pair.name, pending)
+    state.save_snapshot(key, snapshot)
+    pending = [entry for entry in state.load_pending(key) if entry["rel"] != rel]
+    state.save_pending(key, pending)

@@ -60,6 +60,34 @@ def set_default_transport(raw: dict[str, Any], transport: str) -> dict[str, Any]
     return new_raw
 
 
+def set_phone(raw: dict[str, Any], phone_id: str, *, name: str | None = None, wifi_target: str | None = None) -> dict[str, Any]:
+    """Return a new raw dict with ``phones[phone_id]`` created or updated (task 33b). ``None`` leaves a field as it is."""
+    new_raw = dict(raw)
+    phones = dict(new_raw.get("phones") or {})
+    entry = dict(phones.get(phone_id) or {})
+    if name is not None:
+        entry["name"] = name
+    if wifi_target is not None:
+        entry["wifi_target"] = wifi_target
+    phones[phone_id] = entry
+    new_raw["phones"] = phones
+    return new_raw
+
+
+def remove_phone(raw: dict[str, Any], phone_id: str) -> dict[str, Any]:
+    """Return a new raw dict without ``phones[phone_id]``; ``ConfigError`` if it is not listed."""
+    phones = dict(raw.get("phones") or {})
+    if phone_id not in phones:
+        raise ConfigError(f"no phone {phone_id!r} in the config")
+    del phones[phone_id]
+    new_raw = dict(raw)
+    if phones:
+        new_raw["phones"] = phones
+    else:
+        new_raw.pop("phones", None)
+    return new_raw
+
+
 def _with_checked_remote(pair_dict: dict[str, Any]) -> dict[str, Any]:
     """Copy of ``pair_dict`` with the phone folder tidied and checked (task 36c).
 

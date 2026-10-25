@@ -9,6 +9,7 @@ directory helper used by ``state.py``.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -72,6 +73,15 @@ class ServiceConfig:
 
 
 @dataclass
+class PhoneConfig:
+    """A phone the user named (task 33b, issue #3 of the public repository). The id is the phone's hardware serial."""
+
+    name: str = ""
+    #: `host:port` for Wi-Fi/Tailscale debugging of this phone; the daemon keeps trying to reconnect it.
+    wifi_target: str | None = None
+
+
+@dataclass
 class PairConfig:
     name: str
     local: Path
@@ -86,6 +96,9 @@ class PairConfig:
     conflict_copies: Literal["folder", "beside"] = "folder"
     #: "adb" (default) or "agent": see :data:`TRANSPORT_MODES`.
     transport: Literal["adb", "agent"] = "adb"
+    #: Which phone this pair belongs to (task 33a): "any" (default) or a phone's hardware serial, as shown by
+    #: `androsync devices`. A pair bound to a phone only syncs with that phone.
+    device: str = "any"
     #: Off skips this pair in `status`/`run`/auto-sync (Phase I `--pause`). Does not affect `resolve`.
     enabled: bool = True
     undo_keep_runs: int = 10
@@ -121,6 +134,8 @@ class Config:
     #: `device: wifi:IP:PORT` value is equivalent to `device: auto` +
     #: this field set to `IP:PORT` - see `resolve_device`.
     wifi_target: str | None = None
+    #: The phones the user named, by hardware serial (`androsync devices` shows it). Optional.
+    phones: dict[str, PhoneConfig] = field(default_factory=dict)
 
 
 def default_config_path() -> Path:
@@ -177,6 +192,9 @@ def load_config(path: Path | None = None) -> Config:
         if not name:
             raise ConfigError("pair <unnamed>: 'name' is required")
 
+        if "@" in str(name):
+            # "<pair>@<phone>" names a phone's history files (task 33a), so a pair name must not contain it.
+            raise ConfigError(f"pair {name}: the name must not contain '@'")
         if name in seen_names:
             raise ConfigError(f"pair {name}: duplicate pair name")
         seen_names.add(name)
@@ -231,6 +249,8 @@ def load_config(path: Path | None = None) -> Config:
         if transport not in TRANSPORT_MODES:
             raise ConfigError(f"pair {name}: 'transport' must be one of {TRANSPORT_MODES}, got {transport!r}")
 
+        pair_device = str(merged.get("device", "any")).strip() or "any"
+
         enabled = bool(merged.get("enabled", True))
 
         undo_raw = dict(UNDO_DEFAULTS)
@@ -279,6 +299,7 @@ def load_config(path: Path | None = None) -> Config:
                 versioning=versioning,
                 conflict_copies=conflict_copies,
                 transport=transport,
+                device=pair_device,
                 enabled=enabled,
                 undo_keep_runs=undo_keep_runs,
                 undo_max_total_mb=undo_max_total_mb,
@@ -293,4 +314,19 @@ def load_config(path: Path | None = None) -> Config:
             )
         )
 
-    return Config(device=device, service=service, defaults=defaults, pairs=pairs, wifi_target=wifi_target)
+    phones: dict[str, PhoneConfig] = {}
+    phones_raw = raw.get("phones") or {}
+    if not isinstance(phones_raw, dict):
+        raise ConfigError("'phones' must be a mapping of phone id to {name, wifi_target}")
+    for phone_id, entry in phones_raw.items():
+        entry = entry or {}
+        if not isinstance(entry, dict) or set(entry) - {"name", "wifi_target"}:
+            raise ConfigError(f"phone {phone_id}: only 'name' and 'wifi_target' are allowed")
+        target = entry.get("wifi_target")
+        if target is not None and not re.fullmatch(r"[^\s:]+:\d{1,5}", str(target)):
+            raise ConfigError(f"phone {phone_id}: 'wifi_target' must look like host:port, got {target!r}")
+        phones[str(phone_id)] = PhoneConfig(name=str(entry.get("name") or ""), wifi_target=str(target) if target else None)
+
+    return Config(
+        device=device, service=service, defaults=defaults, pairs=pairs, wifi_target=wifi_target, phones=phones
+    )

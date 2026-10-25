@@ -290,8 +290,44 @@ def _adb_connect(target: str, adb_path: str) -> str:
 def _ambiguous_error(ready: list[DeviceInfo]) -> AdbError:
     details = ", ".join(f"{d.serial} ({d.state})" for d in ready)
     return AdbError(
-        f"more than one device found: {details} - set 'device' in the config to a specific serial"
+        f"more than one phone is attached: {details}. Nothing was synced. Unplug one, or set the pair's "
+        "'device' to the phone it belongs to (see `androsync devices`)"
     )
+
+
+def hardware_serial(connection_serial: str, adb_path: str = "adb") -> str | None:
+    """The phone's own serial number (``ro.serialno``): the same over USB and over Wi-Fi, unlike the connection serial.
+
+    ``None`` when the phone does not tell (some report ``unknown``).
+    """
+    try:
+        result = _run_process(
+            [adb_path, "-s", connection_serial, "shell", "getprop ro.serialno"],
+            capture_output=True, text=True, timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    value = (result.stdout or "").strip() if isinstance(result.stdout, str) else ""
+    return value if result.returncode == 0 and value and value.lower() != "unknown" else None
+
+
+def resolve_pair_device(
+    pair_device: str | None, config_device: str, *, wifi_target: str | None = None, adb_path: str = "adb"
+) -> str:
+    """The connection serial to use for a pair bound to the phone ``pair_device`` (task 33a).
+
+    ``"any"``/empty means the usual :func:`resolve_device`. Otherwise the phone is looked up among the ready devices
+    by its hardware serial or its connection serial, so a phone bound by its hardware serial is found over USB and
+    over Wi-Fi alike. Raises :class:`AdbError` naming what is attached when it is not there.
+    """
+    if not pair_device or pair_device == "any":
+        return resolve_device(config_device, wifi_target=wifi_target, adb_path=adb_path)
+    ready = [d for d in list_devices(adb_path) if d.state == "device"]
+    for dev in ready:
+        if dev.serial == pair_device or hardware_serial(dev.serial, adb_path) == pair_device:
+            return dev.serial
+    attached = ", ".join(d.serial for d in ready) or "none"
+    raise AdbError(f"the phone {pair_device!r} is not connected (ready phones: {attached})")
 
 
 def resolve_device(config_device: str, *, wifi_target: str | None = None, adb_path: str = "adb") -> str:
@@ -430,6 +466,18 @@ class AdbTransport(Transport):
         self._find_printf_ok: bool | None = None
         self._mtime_preserved: bool | None = None
         self._sha256sum_ok: bool | None = None
+        self._device_key: str | None = None
+        self._device_key_known = False
+
+    @property
+    def device_key(self) -> str | None:
+        """What names this phone's sync history (task 33a): its hardware serial, else the connection serial."""
+        if not self._device_key_known:
+            serial = self.adb.serial
+            found = hardware_serial(serial, self.adb.adb_path) if serial else None
+            self._device_key = found or serial
+            self._device_key_known = True
+        return self._device_key
 
     # -- capability probes --------------------------------------------------
 

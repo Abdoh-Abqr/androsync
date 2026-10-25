@@ -133,19 +133,122 @@ def _all_state_paths(pair_name: str) -> list[Path]:
     return [_snapshot_path(pair_name), _meta_path(pair_name), _pending_path(pair_name)]
 
 
+# --- one history per phone (task 33a, issue #2 of the public repository) -------------------------------------------
+#
+# A pair's state is kept under a *key*: the pair name alone (the old layout, still used by transports that cannot tell
+# phones apart, such as the agent), or ``<pair>@<phone>`` for a phone that identifies itself. Every function above takes
+# the key where it says ``pair_name``. Two phones that have a pair with the same name therefore never share a snapshot,
+# so what one phone lacks can never be read as "deleted" on the other.
+
+#: Characters allowed in the phone part of a key (anything else becomes ``_``).
+_KEY_SAFE = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
+
+
+def device_part(device: str) -> str:
+    """A file-name-safe form of a phone's identity."""
+    return "".join(c if c in _KEY_SAFE else "_" for c in device)
+
+
+def state_key(pair_name: str, device: str | None) -> str:
+    """``pair_name`` alone for no phone identity, else ``pair_name@<phone>``."""
+    return pair_name if not device else f"{pair_name}@{device_part(device)}"
+
+
+def keys_for(pair_name: str) -> list[str]:
+    """Every key that has state for ``pair_name``: the plain name and each ``pair@phone``, sorted."""
+    root = state_dir()
+    keys: set[str] = set()
+    prefix = f"{pair_name}@"
+    if root.is_dir():
+        for entry in root.iterdir():
+            name = entry.name
+            for suffix in (".pending.json", ".meta.json", ".json"):
+                if name.endswith(suffix):
+                    stem = name[: -len(suffix)]
+                    if stem == pair_name or stem.startswith(prefix):
+                        keys.add(stem)
+                    break
+        undo_root = root / "undo"
+        if undo_root.is_dir():
+            for entry in undo_root.iterdir():
+                if entry.is_dir() and (entry.name == pair_name or entry.name.startswith(prefix)):
+                    keys.add(entry.name)
+    return sorted(keys)
+
+
+def claim_legacy(pair_name: str, key: str) -> None:
+    """Give the pair's old, phone-less history to the first phone that uses it, once.
+
+    Before histories were kept per phone every pair had one set of files named after the pair. The first phone that
+    syncs the pair after the upgrade takes them over (a rename, so nothing is copied or lost); a marker file stops a
+    second phone from taking them too, so the second phone starts with an empty history (a first run, which never
+    deletes). The marker is written even when there was nothing to take over, so files a phone-less transport creates
+    later are never mistaken for a phone's history.
+    """
+    if key == pair_name:
+        return
+    marker = state_dir() / f"{pair_name}.claimed"
+    if marker.exists():
+        return
+    state_dir().mkdir(parents=True, exist_ok=True)
+    for old, new in zip(_all_state_paths(pair_name), _all_state_paths(key)):
+        if old.exists() and not new.exists():
+            os.replace(old, new)
+    old_undo, new_undo = undo_dir(pair_name), undo_dir(key)
+    if old_undo.is_dir() and not new_undo.exists():
+        new_undo.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(old_undo, new_undo)
+    marker.write_text(key, encoding="utf-8")
+
+
+def key_for(pair_name: str, remote: object) -> str:
+    """The state key for a run against ``remote``: uses the transport's ``device_key`` when it has one."""
+    key = state_key(pair_name, getattr(remote, "device_key", None))
+    claim_legacy(pair_name, key)
+    return key
+
+
+def latest_meta(pair_name: str) -> dict[str, Any]:
+    """The newest ``last_run``/``last_result`` among the pair's keys (what a pair list shows), or {}."""
+    best: dict[str, Any] = {}
+    best_time = -1.0
+    for key in keys_for(pair_name):
+        path = _meta_path(key)
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            continue
+        if mtime > best_time:
+            best_time, best = mtime, load_pair_meta(key)
+    return best
+
+
+def load_pending_all(pair_name: str) -> list[dict[str, Any]]:
+    """The pending ``conflict: ask`` entries of every phone of ``pair_name``."""
+    entries: list[dict[str, Any]] = []
+    for key in keys_for(pair_name):
+        entries.extend(load_pending(key))
+    return entries
+
+
 def rename_pair_state(old_name: str, new_name: str) -> None:
     """Rename every state file for ``old_name`` to ``new_name`` (a pair rename, task 23b).
 
     Files that do not exist are skipped silently. Also moves the undo journal
     directory (task 30a), if any.
     """
-    for old_path, new_path in zip(_all_state_paths(old_name), _all_state_paths(new_name)):
-        if old_path.exists():
-            os.replace(old_path, new_path)
-    old_undo, new_undo = undo_dir(old_name), undo_dir(new_name)
-    if old_undo.is_dir():
-        new_undo.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(old_undo, new_undo)
+    claim_old, claim_new = state_dir() / f"{old_name}.claimed", state_dir() / f"{new_name}.claimed"
+    if claim_old.exists():
+        os.replace(claim_old, claim_new)
+    for key in keys_for(old_name):
+        new_key = new_name + key[len(old_name) :]  # keeps the "@phone" part
+        for old_path, new_path in zip(_all_state_paths(key), _all_state_paths(new_key)):
+            if old_path.exists():
+                os.replace(old_path, new_path)
+        old_undo, new_undo = undo_dir(key), undo_dir(new_key)
+        if old_undo.is_dir():
+            new_undo.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(old_undo, new_undo)
 
 
 def purge_pair_state(pair_name: str) -> None:
@@ -153,9 +256,11 @@ def purge_pair_state(pair_name: str) -> None:
 
     Also deletes the undo journal directory (task 30a), if any.
     """
-    for path in _all_state_paths(pair_name):
-        path.unlink(missing_ok=True)
-    shutil.rmtree(undo_dir(pair_name), ignore_errors=True)
+    for key in keys_for(pair_name):
+        for path in _all_state_paths(key):
+            path.unlink(missing_ok=True)
+        shutil.rmtree(undo_dir(key), ignore_errors=True)
+    (state_dir() / f"{pair_name}.claimed").unlink(missing_ok=True)
 
 
 #: How long a reset pair's old history is kept before it is deleted (task 36d, issue #9).
@@ -178,16 +283,17 @@ def reset_pair_state(pair_name: str, now: datetime | None = None) -> Path | None
     stamp = (now or datetime.now()).strftime("%Y%m%d-%H%M%S")
     target = state_dir() / f"{reset_dir_prefix(pair_name)}{stamp}"
     moved = False
-    for path in (_snapshot_path(pair_name), _pending_path(pair_name)):
-        if path.exists():
+    for key in keys_for(pair_name):
+        for path in (_snapshot_path(key), _pending_path(key)):
+            if path.exists():
+                target.mkdir(parents=True, exist_ok=True)
+                os.replace(path, target / path.name)
+                moved = True
+        journals = undo_dir(key)
+        if journals.is_dir():
             target.mkdir(parents=True, exist_ok=True)
-            os.replace(path, target / path.name)
+            os.replace(journals, target / ("undo" + key[len(pair_name) :]))
             moved = True
-    journals = undo_dir(pair_name)
-    if journals.is_dir():
-        target.mkdir(parents=True, exist_ok=True)
-        os.replace(journals, target / "undo")
-        moved = True
     prune_resets()
     return target if moved else None
 

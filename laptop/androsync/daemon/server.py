@@ -36,7 +36,7 @@ from androsync.executor import run_pair
 from androsync.transport.agent import POLL_SECONDS, AgentBroker, AgentCancelled, AgentTransport
 from androsync.model import Side
 from androsync.transport.local import LocalDirTransport
-from androsync.undo import UndoError, list_runs
+from androsync.undo import UndoError, list_runs_all
 
 _LOG = logging.getLogger(__name__)
 
@@ -551,7 +551,7 @@ class _Handler(BaseHTTPRequestHandler):
         config: Config = self.api._config_loader()
         if not any(p.name == name for p in config.pairs):
             return self._send_json(404, {"error": f"unknown pair: {name}"})
-        return self._send_json(200, state.load_pending(name))
+        return self._send_json(200, state.load_pending_all(name))
 
     def _h_status(self, match: re.Match, query: str) -> int:
         name = unquote(match.group("pair"))
@@ -613,7 +613,7 @@ class _Handler(BaseHTTPRequestHandler):
         config = self.api._config_loader()
         if not any(p.name == name for p in config.pairs):
             return self._send_json(404, {"error": f"unknown pair: {name}"})
-        return self._send_json(200, list_runs(name))
+        return self._send_json(200, list_runs_all(name))
 
     def _h_undo(self, match: re.Match, query: str) -> int:
         name = unquote(match.group("pair"))

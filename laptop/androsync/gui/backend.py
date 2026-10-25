@@ -321,7 +321,7 @@ class Backend:
 
         resolved_run_id = run_id
         if resolved_run_id is None:
-            runs = undo_mod.list_runs(pair.name)
+            runs = undo_mod.list_runs_all(pair.name)
             if not runs:
                 self._log("error: no runs recorded for this pair")
                 self._done(False, "no runs")

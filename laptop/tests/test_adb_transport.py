@@ -115,7 +115,7 @@ def test_resolve_device_auto_two_devices(monkeypatch):
 
     monkeypatch.setattr(adb_module, "_run_process", fake_run)
 
-    with pytest.raises(AdbError, match="more than one device"):
+    with pytest.raises(AdbError, match="more than one phone is attached"):
         resolve_device("auto")
 
 

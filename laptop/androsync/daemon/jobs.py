@@ -32,7 +32,7 @@ from androsync.runlog import tee as _tee_log
 from androsync.transport.agent import AgentBroker, AgentTransport
 from androsync.transport.base import Transport, TransportCancelled, TransportError
 from androsync.transport.local import LocalDirTransport
-from androsync.undo import UndoError, list_runs, undo_run
+from androsync.undo import UndoError, list_runs_all, undo_run
 
 _LOG = logging.getLogger(__name__)
 
@@ -155,29 +155,37 @@ def _mark_pair_failed(pair_name: str, exc: Exception) -> None:
 
 @dataclass
 class OpenedTransports:
-    """The transports a job (or a preview) needs: the laptop side plus a phone side per way of reaching the phone.
+    """The transports a job (or a preview) needs: the laptop side plus a phone side per way of reaching a phone.
 
-    A pair with ``transport: adb`` uses :attr:`adb_remote`, one with ``transport: agent`` uses :attr:`agent_remote`
-    (task 37d, issue #16). A job that only has agent pairs never opens adb, so it works with no phone attached.
+    A pair with ``transport: adb`` uses the adb transport of the phone it is bound to (``device``, "any" by default),
+    one with ``transport: agent`` uses :attr:`agent_remote` (task 37d, issue #16; per phone: task 33a). A job that
+    only has agent pairs never opens adb, so it works with no phone attached.
     """
 
     local: Transport
-    adb_remote: Transport | None = None
+    #: adb transports by the pair's ``device`` value ("any" or a phone's serial).
+    adb_remotes: dict[str, Transport] = field(default_factory=dict)
     agent_remote: Transport | None = None
-    #: Why adb could not be opened, when some other pair in the same job did not need it.
-    adb_error: Exception | None = None
+    #: Why adb could not be opened for a device, when some other pair in the same job did not need it.
+    adb_errors: dict[str, Exception] = field(default_factory=dict)
+
+    @property
+    def adb_error(self) -> Exception | None:
+        return next(iter(self.adb_errors.values()), None)
 
     def remote_for(self, pair: PairConfig) -> Transport:
         if pair.transport == "agent":
             if self.agent_remote is None:
                 raise TransportError("agent mode is not available here")
             return self.agent_remote
-        if self.adb_remote is None:
-            raise self.adb_error or TransportError("no connection to the phone")
-        return self.adb_remote
+        device = pair.device or "any"
+        remote = self.adb_remotes.get(device)
+        if remote is None:
+            raise self.adb_errors.get(device) or TransportError("no connection to the phone")
+        return remote
 
     def all(self) -> list[Transport]:
-        return [t for t in (self.local, self.adb_remote, self.agent_remote) if t is not None]
+        return [t for t in (self.local, *self.adb_remotes.values(), self.agent_remote) if t is not None]
 
 
 class JobRunner:
@@ -188,10 +196,13 @@ class JobRunner:
         config_loader: ConfigLoader,
         transport_factory: TransportFactory,
         agent_broker: AgentBroker | None = None,
+        device_transport_factory: Callable[[Config, str], tuple[Transport, Transport]] | None = None,
     ) -> None:
         self._config_loader = config_loader
         self._transport_factory = transport_factory
         self._agent_broker = agent_broker
+        #: Opens the adb transport of one named phone, for pairs bound to it (task 33a).
+        self._device_transport_factory = device_transport_factory
         self._lock = threading.Lock()
         self._jobs: dict[str, Job] = {}
         self._order: list[str] = []  # oldest -> newest job id
@@ -239,7 +250,7 @@ class JobRunner:
 
             resolved_run_id = run_id
             if resolved_run_id is None:
-                runs = list_runs(pair)
+                runs = list_runs_all(pair)
                 if not runs:
                     raise UndoError(f"no runs recorded for pair {pair!r}")
                 resolved_run_id = runs[0]["run_id"]
@@ -329,28 +340,38 @@ class JobRunner:
         return [self._jobs[job_id] for job_id in ids[:limit] if job_id in self._jobs]
 
     def open_transports(self, config: Config, pairs: list[PairConfig | None]) -> OpenedTransports:
-        """Open what ``pairs`` need (``None`` = a pair that is no longer configured, treated as adb).
+        """Open what ``pairs`` need (``None`` = a pair that is no longer configured, treated as adb, any phone).
 
-        Raises the adb error when adb is needed, cannot be opened and no agent pair could still run.
+        Raises the adb error when adb is needed, cannot be opened for any phone and no agent pair could still run.
         """
         needs_agent = any(p is not None and p.transport == "agent" for p in pairs)
-        needs_adb = not pairs or any(p is None or p.transport != "agent" for p in pairs)
+        devices = {(p.device if p is not None else "any") or "any" for p in pairs if p is None or p.transport != "agent"}
+        if not pairs:
+            devices = {"any"}
         local: Transport | None = None
-        adb_remote: Transport | None = None
-        adb_error: Exception | None = None
-        if needs_adb:
+        adb_remotes: dict[str, Transport] = {}
+        adb_errors: dict[str, Exception] = {}
+        for device in sorted(devices):
             try:
-                local, adb_remote = self._transport_factory(config)
+                if device == "any":
+                    opened_local, remote = self._transport_factory(config)
+                elif self._device_transport_factory is not None:
+                    opened_local, remote = self._device_transport_factory(config, device)
+                else:
+                    raise TransportError(f"this daemon cannot open a specific phone ({device!r})")
             except Exception as exc:  # noqa: BLE001 - kept for the pairs that need it
-                if not needs_agent:
-                    raise
-                adb_error = exc
+                adb_errors[device] = exc
+                continue
+            local = local if local is not None else opened_local
+            adb_remotes[device] = remote
+        if adb_errors and not adb_remotes and not needs_agent:
+            raise next(iter(adb_errors.values()))
         agent_remote = AgentTransport(self._agent_broker) if needs_agent and self._agent_broker is not None else None
         return OpenedTransports(
             local=local if local is not None else LocalDirTransport(Side.LOCAL),
-            adb_remote=adb_remote,
+            adb_remotes=adb_remotes,
             agent_remote=agent_remote,
-            adb_error=adb_error,
+            adb_errors=adb_errors,
         )
 
     def _run(self, job: Job) -> None:
@@ -388,8 +409,9 @@ class JobRunner:
             return
 
         job.transports = opened.all()
-        if opened.adb_error is not None:
-            log(f"ERROR: the phone cannot be reached over adb (pairs set to adb will fail): {opened.adb_error}")
+        for device, error in opened.adb_errors.items():
+            which = "the phone" if device == "any" else f"the phone {device}"
+            log(f"ERROR: {which} cannot be reached over adb (pairs that need it will fail): {error}")
         if job.cancel_requested:  # Stop arrived while the transports were being opened
             self._abort_transports(job)
 
@@ -565,7 +587,7 @@ def pairs_status(config: Config) -> list[dict]:
     """Return one status dict per configured pair, for ``GET /v1/pairs``."""
     result = []
     for pair in config.pairs:
-        meta = state.load_pair_meta(pair.name)
+        meta = state.latest_meta(pair.name)
         result.append(
             {
                 "name": pair.name,
@@ -574,6 +596,7 @@ def pairs_status(config: Config) -> list[dict]:
                 "direction": pair.direction,
                 "conflict": pair.conflict,
                 "transport": pair.transport,
+                "device": pair.device,
                 "enabled": pair.enabled,
                 "last_run": meta.get("last_run"),
                 "last_result": meta.get("last_result"),

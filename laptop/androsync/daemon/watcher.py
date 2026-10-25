@@ -37,7 +37,7 @@ from androsync.daemon.jobs import JobBusy, JobRunner
 from androsync.daemon.server import ApiServer
 from androsync.model import Side
 from androsync.service_state import remove_pid_file, write_pid_file
-from androsync.transport.adb import Adb, AdbTransport, resolve_device
+from androsync.transport.adb import Adb, AdbTransport, hardware_serial, resolve_device, resolve_pair_device
 from androsync.transport.agent import AgentBroker
 from androsync.transport.local import LocalDirTransport
 
@@ -307,6 +307,9 @@ class Daemon:
         self._server: ApiServer | None = None
         self._watcher: DeviceWatcher | None = None
         self._wifi_reconnector: WifiReconnector | None = None
+        self._extra_reconnectors: list[WifiReconnector] = []  # one per further phone with a wifi_target (task 33b)
+        #: connection serial -> the phone's hardware serial, learned when it connects (kept out of the ping's way).
+        self._hardware_serials: dict[str, str] = {}
 
         # The mailbox the phone app polls in agent mode (task 37b); transports for agent pairs use this same one.
         self.agent_broker = AgentBroker()
@@ -329,6 +332,12 @@ class Daemon:
         serial = resolve_device(config.device, wifi_target=config.wifi_target)
         return LocalDirTransport(Side.LOCAL), AdbTransport(Adb(serial=serial))
 
+    @staticmethod
+    def _default_device_transport_factory(config: Config, device: str) -> tuple[LocalDirTransport, AdbTransport]:
+        """The adb transport of the phone a pair is bound to (task 33a)."""
+        serial = resolve_pair_device(device, config.device, wifi_target=config.wifi_target)
+        return LocalDirTransport(Side.LOCAL), AdbTransport(Adb(serial=serial))
+
     def _default_watcher_factory(self, *, on_connect: ConnectFn, on_disconnect: ConnectFn) -> DeviceWatcher:
         return DeviceWatcher(on_connect=on_connect, on_disconnect=on_disconnect)
 
@@ -347,7 +356,9 @@ class Daemon:
             )
         self._config = config
 
-        self._runner = JobRunner(self._config_loader, self.transport_factory, self.agent_broker)
+        self._runner = JobRunner(
+            self._config_loader, self.transport_factory, self.agent_broker, self._default_device_transport_factory
+        )
         self._server = ApiServer(
             self._runner,
             self._config_loader,
@@ -373,6 +384,18 @@ class Daemon:
             self._wifi_reconnector = WifiReconnector(target, is_connected=lambda: self._is_wifi_target_connected(target))
             self._wifi_reconnector.start()
             _LOG.info("androsync: wifi reconnect loop started for %s", target)
+
+        # Every named phone with a Wi-Fi target gets its own reconnect loop (task 33b).
+        started = {config.device[len("wifi:") :]} if config.device.startswith("wifi:") else set()
+        for phone_id, phone in config.phones.items():
+            target = phone.wifi_target
+            if not target or target in started:
+                continue
+            started.add(target)
+            reconnector = WifiReconnector(target, is_connected=lambda t=target: self._is_wifi_target_connected(t))
+            reconnector.start()
+            self._extra_reconnectors.append(reconnector)
+            _LOG.info("androsync: wifi reconnect loop started for %s (%s)", target, phone.name or phone_id)
 
     def _is_wifi_target_connected(self, target: str) -> bool:
         watcher = self._watcher
@@ -434,10 +457,11 @@ class Daemon:
 
     def stop(self) -> None:
         """Stop the watcher and the HTTP API. Safe to call more than once."""
-        if self._wifi_reconnector is not None:
-            self._wifi_reconnector.stop()
-            self._wifi_reconnector.join(timeout=5.0)
-            self._wifi_reconnector = None
+        for reconnector in [r for r in (self._wifi_reconnector, *self._extra_reconnectors) if r is not None]:
+            reconnector.stop()
+            reconnector.join(timeout=5.0)
+        self._wifi_reconnector = None
+        self._extra_reconnectors = []
         if self._watcher is not None:
             self._watcher.stop()
             self._watcher.join(timeout=5.0)
@@ -451,6 +475,9 @@ class Daemon:
 
     def on_connect(self, serial: str) -> None:
         """Called by the watcher when ``serial`` enters state ``device``."""
+        hardware = hardware_serial(serial)
+        if hardware:
+            self._hardware_serials[serial] = hardware
         with self._device_lock:
             self._device_serial = serial
             self._device_transport = _transport_kind(serial)
@@ -578,10 +605,21 @@ class Daemon:
             info = {"transport": self._device_transport, "device": self._device_serial}
         watcher = self._watcher
         seen = dict(watcher.devices) if watcher is not None else {}
-        info["devices"] = [
-            {"serial": serial, "state": state, "transport": _transport_kind(serial)}
-            for serial, state in sorted(seen.items())
-        ]
+        phones = self._config.phones if self._config is not None else {}
+        rows = []
+        for serial, state in sorted(seen.items()):
+            phone_id = self._hardware_serials.get(serial, serial)
+            phone = phones.get(phone_id) or phones.get(serial)
+            rows.append(
+                {
+                    "serial": serial,
+                    "state": state,
+                    "transport": _transport_kind(serial),
+                    "id": phone_id,
+                    "name": (phone.name or None) if phone is not None else None,
+                }
+            )
+        info["devices"] = rows
         return info
 
     def notify(self, title: str, body: str) -> None:

@@ -280,6 +280,17 @@ def list_runs(pair_name: str) -> list[dict]:
     return runs
 
 
+def list_runs_all(pair_name: str) -> list[dict]:
+    """Every phone's runs for ``pair_name`` (task 33a), newest first. Each run gets a ``device`` field ("" = no phone)."""
+    runs: list[dict] = []
+    for key in state.keys_for(pair_name):
+        device = key[len(pair_name) + 1 :] if key != pair_name else ""
+        for run in list_runs(key):
+            runs.append({**run, "device": device})
+    runs.sort(key=_run_sort_key, reverse=True)
+    return runs
+
+
 def load(pair_name: str, run_id: str) -> dict:
     """Load one run's full journal: ``{"meta", "snapshot_before", "entries"}``.
 
@@ -580,10 +591,20 @@ def undo_run(
     backwards too, i.e. redoes the original run. Raises ``UndoError`` if
     ``run_id`` does not exist for ``pair.name``.
     """
-    loaded = load(pair.name, run_id)
+    key = state.key_for(pair.name, remote)  # one history per phone (task 33a)
+    try:
+        loaded = load(key, run_id)
+    except UndoError:
+        owner = next((r["device"] for r in list_runs_all(pair.name) if r["run_id"] == run_id), None)
+        if owner is not None:
+            raise UndoError(
+                f"run {run_id!r} of pair {pair.name!r} was made with another phone ({owner or 'unknown'}); "
+                "connect that phone to undo it"
+            ) from None
+        raise
     entries = loaded["entries"]
     tol = pair.mtime_tolerance_s
-    orig_run_dir = state.undo_dir(pair.name) / run_id
+    orig_run_dir = state.undo_dir(key) / run_id
 
     transports = {Side.LOCAL: local, Side.REMOTE: remote}
     roots = {Side.LOCAL: str(pair.local), Side.REMOTE: pair.remote}
@@ -591,9 +612,9 @@ def undo_run(
     summary = UndoSummary()
     journal: RunJournal | None = None
     if not dry_run and pair.undo_enabled:
-        current_snapshot = dict(state.load_snapshot(pair.name))
+        current_snapshot = dict(state.load_snapshot(key))
         journal = RunJournal.start(
-            pair.name, current_snapshot, {"max_file_mb": pair.undo_max_file_mb}, kind="undo"
+            key, current_snapshot, {"max_file_mb": pair.undo_max_file_mb}, kind="undo"
         )
         summary.run_id = journal.run_id
 
@@ -625,7 +646,7 @@ def undo_run(
 
     # A stopped undo is only partly done, so the pair's history must not be reset to "before the run".
     if not dry_run and summary.errors == 0 and not cancelled:
-        state.save_snapshot(pair.name, loaded["snapshot_before"])
+        state.save_snapshot(key, loaded["snapshot_before"])
 
     if journal is not None:
         journal.finish(summary)

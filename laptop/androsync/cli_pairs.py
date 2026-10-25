@@ -316,7 +316,7 @@ def cmd_resolve(args: argparse.Namespace) -> int:
     if not pairs:
         pairs = config.pairs
 
-    pending_by_pair = {pair.name: state.load_pending(pair.name) for pair in pairs}
+    pending_by_pair = {pair.name: state.load_pending_all(pair.name) for pair in pairs}
     if not any(pending_by_pair.values()):
         print("nothing pending")
         return 0
