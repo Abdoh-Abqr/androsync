@@ -1,0 +1,6 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme; the real theming lives in the Compose theme
+         (ui/theme). This XML theme only needs to exist so the manifest/activity
+         has a valid launch theme and window background before Compose draws. -->
+    <style name="Theme.AndroSyncRemote" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

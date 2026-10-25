@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AndroSync Remote only ever talks to the user's own laptop daemon: over the
+  USB loopback address set up by `adb reverse` (127.0.0.1), over the private
+  Tailscale VPN (100.64.0.0/10), or over a plain LAN IP typed in by the user.
+  All three are transports the user already trusts (and Tailscale traffic is
+  itself encrypted end-to-end - see PLAN.md "Network, Tailscale and firewall"),
+  and every request still carries the bearer token from `androsync qr`, so we
+  allow cleartext HTTP for all domains rather than maintaining an IP allowlist
+  that would break the moment the user's LAN or Tailscale IP changes.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

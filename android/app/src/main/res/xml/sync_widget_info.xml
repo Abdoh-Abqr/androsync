@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PLAN.md task 21: refreshed by the OS every updatePeriodMillis (here, the
+  system minimum-honoring 30 min) and also on demand by
+  `widget/refreshWidgets` (after a manual sync or when a job started
+  elsewhere - Pairs screen, the tile - finishes).
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/glance_widget_loading"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen" />

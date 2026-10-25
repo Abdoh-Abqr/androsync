@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  laptop-tests:
+    name: Laptop tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e "./laptop[dev]"
+      - run: pytest laptop -q
+
+  android-tests:
+    name: Android tests + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests
+        working-directory: android
+        run: ./gradlew :app:testDebugUnitTest
+      - name: Assemble debug APK
+        working-directory: android
+        run: ./gradlew :app:assembleDebug
+      - name: Play build has no all-files permission, full build has it
+        run: bash scripts/check_flavor_permissions.sh
+
+  foss-check:
+    name: Only free dependencies (F-Droid)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/check_foss_deps.sh
+
+  personal-data-check:
+    name: No hardcoded personal data
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/check_no_personal_data.sh

@@ -1,0 +1,30 @@
+# Draft of the F-Droid build recipe (task 35d, issue #24). It goes to the fdroiddata repository as
+# metadata/com.androsync.remote.yml in a merge request, see ../fdroid.md. The store texts, icon and changelog are read
+# from fastlane/metadata/android/en-US in this repository.
+Categories:
+  - Connectivity
+License: GPL-3.0-or-later
+AuthorName: Abdoh-Abqr
+WebSite: https://github.com/Abdoh-Abqr/androsync
+SourceCode: https://github.com/Abdoh-Abqr/androsync
+IssueTracker: https://github.com/Abdoh-Abqr/androsync/issues
+Changelog: https://github.com/Abdoh-Abqr/androsync/blob/master/CHANGELOG.md
+Donate: https://buymeacoffee.com/abqr
+
+AutoName: AndroSync
+
+RepoType: git
+Repo: https://github.com/Abdoh-Abqr/androsync.git
+
+Builds:
+  - versionName: 0.2.0
+    versionCode: 2
+    commit: v0.2.0
+    subdir: android/app
+    gradle:
+      - full
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 0.2.0
+CurrentVersionCode: 2

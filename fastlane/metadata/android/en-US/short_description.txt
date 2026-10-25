@@ -1,0 +1,1 @@
+Sync folders between your laptop and phone, with preview, undo and Stop.

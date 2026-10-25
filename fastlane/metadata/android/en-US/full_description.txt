@@ -1,0 +1,15 @@
+AndroSync keeps chosen folders identical on your Linux laptop and your Android phone, in both directions, with no cloud. This app is the remote control for the AndroSync program on your laptop: you add folder pairs, preview what would change, start a sync, watch the live log, stop it, and undo a whole sync.
+
+Why it is different:
+• Preview first: see every copy and delete before anything happens.
+• Undo: put both sides back to how they were before the last sync.
+• Stop: a running sync can be stopped from the phone, the laptop window or the command line.
+• Conflicts are not duplicated: the losing version is kept in a hidden folder, not as extra files in your folders.
+• Safety: a first sync never deletes, and a sync that would delete or copy a lot waits for your OK.
+• Works over the USB cable, over Wi-Fi debugging, or without any debugging in agent mode.
+
+Agent mode (this version): the app reads and writes your folders itself when the laptop asks, over Tailscale, so USB debugging can stay off. It needs the "All files access" permission, which is why this version is not on Google Play.
+
+You need the AndroSync program on a Linux laptop (free, same project). Guide: github.com/Abdoh-Abqr/androsync
+
+Free software, GPL-3.0-or-later. No ads, no tracking, no accounts. Nothing is sent anywhere except between your own phone and your own laptop.

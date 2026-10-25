@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  App icon (PLAN.md task 22): a laptop silhouette on the left, a phone
+  silhouette on the right, and two arrows between them standing in for
+  "two-way sync" - the same idea the app's direction arrows use
+  (ui/common/DirectionText.kt: "laptop <-> phone").
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Laptop: screen + keyboard base. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M8,32 L38,32 L38,58 L8,58 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M4,58 L42,58 L46,66 L0,66 Z" />
+
+    <!-- Phone: body + home indicator. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,24 L98,24 L98,84 L70,84 Z" />
+    <path
+        android:fillColor="#1565C0"
+        android:pathData="M80,78 L88,78 L88,81 L80,81 Z" />
+
+    <!-- Sync arrows: laptop -> phone (top), phone -> laptop (bottom). -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44,38 L44,30 L62,44 L44,58 L44,50 L52,50 L52,38 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M64,70 L64,78 L46,64 L64,50 L64,58 L56,58 L56,70 Z" />
+</vector>

@@ -1,0 +1,108 @@
+name: Release
+
+# Push a tag like v0.2.0 (after `python3 scripts/bump_version.py 0.2.0` and a CHANGELOG entry) to build signed APKs,
+# the Python package and a GitHub Release. "Run workflow" by hand does a dry run: same build, no release, and unsigned
+# APKs when the signing secrets are not set.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Work out the version
+        id: version
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="$(python3 scripts/bump_version.py --show | sed -n 's/^pyproject: //p')"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version: $version"
+
+      - name: Every version number must match the tag
+        run: python3 scripts/bump_version.py --check "${{ steps.version.outputs.version }}"
+
+      - name: Release notes from CHANGELOG.md
+        run: python3 scripts/bump_version.py --notes "${{ steps.version.outputs.version }}" > release-notes.md
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            if [ "$GITHUB_REF_TYPE" = tag ]; then
+              echo "::error::Secret KEYSTORE_B64 is not set, a tagged release must be signed."
+              exit 1
+            fi
+            echo "No signing secrets: this dry run builds unsigned APKs."
+            exit 0
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$RUNNER_TEMP/release.jks" "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > android/keystore.properties
+
+      - name: Build the APKs and the Play bundle
+        working-directory: android
+        run: ./gradlew :app:assemblePlayRelease :app:assembleFullRelease :app:bundlePlayRelease
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the Python package
+        run: |
+          pip install build
+          python -m build laptop
+
+      - name: Collect the files
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          mkdir dist
+          for flavor in play full; do
+            apk="$(ls android/app/build/outputs/apk/$flavor/release/*.apk | head -1)"
+            case "$apk" in
+              *unsigned*) suffix="$flavor-unsigned" ;;
+              *) suffix="$flavor" ;;
+            esac
+            cp "$apk" "dist/androsync-remote-$version-$suffix.apk"
+          done
+          cp laptop/dist/* dist/
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: androsync-${{ steps.version.outputs.version }}
+          path: dist/*
+
+      # The Play bundle is not attached to the GitHub Release: Google Play signs it itself (issue #26).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: play-bundle-${{ steps.version.outputs.version }}
+          path: android/app/build/outputs/bundle/playRelease/*.aab
+
+      - name: Create the GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "androsync ${{ steps.version.outputs.version }}" \
+            --notes-file release-notes.md

@@ -1,0 +1,26 @@
+device: auto                 # "auto" (prefers USB, falls back to wifi_target below), or a literal serial
+wifi_target: 192.168.1.20:5555 # tried only when "auto" finds no USB and no already-connected Wi-Fi device
+service:
+  listen: 127.0.0.1          # add "0.0.0.0" later for Wi-Fi; USB needs only localhost
+  port: 8765
+  token: <generated on first `service install`>
+  auto_sync_on_connect: false   # true = run all pairs when the phone is plugged in
+  notify: true                  # desktop notification via notify-send
+  enable_tcpip_on_usb: true     # on USB connect, run `adb tcpip 5555` so wifi_target keeps working
+                                 # after the phone reboots (only when wifi_target ends in :5555)
+defaults:
+  conflict: newest-wins
+  keep_conflict_copies: true
+  mtime_tolerance_s: 2
+  ignore: [".git/**", ".trash/**", "*.tmp"]  # ".androsync/**" (conflict backups) is always ignored too
+pairs:
+  - name: photos
+    local: ~/Pictures/Phone/DCIM
+    remote: /sdcard/DCIM
+    direction: phone-to-laptop
+    propagate_deletes: false
+  - name: vault
+    local: ~/Documents/Obsidian/MyVault
+    remote: /sdcard/Documents/Obsidian/MyVault
+    direction: two-way
+    ignore: [".obsidian/workspace*.json"]

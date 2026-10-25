@@ -1,0 +1,5 @@
+Agent mode: sync without USB debugging, through this app, over Tailscale.
+Guided setup that opens the USB debugging switch for you.
+Stop a running sync from any device, and see it on every screen.
+Safer: bad phone folders are refused, big changes wait for your OK.
+QR scanning no longer needs Google Play services.
