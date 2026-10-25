@@ -4,6 +4,7 @@ package com.androsync.remote.ui
 object Routes {
     const val SETUP = "setup"
     const val SETUP_ADD = "setup-add"
+    const val SETUP_EDIT = "setup-edit"
     const val PAIRS = "pairs"
     const val JOB_PATTERN = "job/{jobId}"
     const val SETTINGS = "settings"

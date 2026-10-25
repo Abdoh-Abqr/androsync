@@ -53,6 +53,7 @@ fun SettingsScreen(
     onForgotSetup: () -> Unit,
     onConnectPhone: () -> Unit = {},
     onAddLaptop: () -> Unit = {},
+    onEditLaptop: () -> Unit = {},
     onLaptopChanged: () -> Unit = {},
     viewModel: SettingsViewModel = rememberSettingsViewModel(),
 ) {
@@ -86,6 +87,9 @@ fun SettingsScreen(
                     }
                     TextButton(onClick = { viewModel.removeLaptop(laptop.id, onLaptopChanged) }) { Text("Remove") }
                 }
+            }
+            OutlinedButton(onClick = onEditLaptop, modifier = Modifier.fillMaxWidth()) {
+                Text("Scan the QR code again for the laptop in use")
             }
             OutlinedButton(onClick = onAddLaptop, modifier = Modifier.fillMaxWidth()) {
                 Text("Add another laptop (scan its QR code)")

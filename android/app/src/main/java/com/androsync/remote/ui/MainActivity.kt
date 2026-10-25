@@ -114,6 +114,17 @@ private fun AndroSyncNavHost(
                 },
             )
         }
+        composable(Routes.SETUP_EDIT) {
+            // Re-scan the QR code (or retype the addresses) for the laptop that is in use now.
+            SetupScreen(
+                connectionState = connectionState,
+                onConnectPhone = { navController.navigate(Routes.CONNECT) },
+                onSaved = {
+                    connectionViewModel.refreshNow()
+                    navController.navigate(Routes.PAIRS) { popUpTo(Routes.PAIRS) { inclusive = true } }
+                },
+            )
+        }
         composable(Routes.SETUP_ADD) {
             SetupScreen(
                 connectionState = connectionState,
@@ -188,6 +199,7 @@ private fun AndroSyncNavHost(
                 onBack = { navController.popBackStack() },
                 onConnectPhone = { navController.navigate(Routes.CONNECT) },
                 onAddLaptop = { navController.navigate(Routes.SETUP_ADD) },
+                onEditLaptop = { navController.navigate(Routes.SETUP_EDIT) },
                 onLaptopChanged = connectionViewModel::refreshNow,
                 onForgotSetup = {
                     navController.navigate(Routes.SETUP) {
