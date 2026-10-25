@@ -8,7 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.androsync.remote.data.api.ApiClient
+import com.androsync.remote.ui.common.isLoopbackUrl
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -39,9 +39,13 @@ class SettingsRepository internal constructor(private val dataStore: DataStore<P
     }
 
     /** The URL currently in effect: the LAN URL the user saved, or a fixed preset URL. */
-    val baseUrl: Flow<String> = dataStore.data.map { prefs ->
-        prefs[Keys.BASE_URL] ?: ApiClient.PRESET_USB_URL
-    }
+    val baseUrl: Flow<String> = dataStore.data.map { prefs -> prefs[Keys.BASE_URL].orEmpty() }
+
+    /**
+     * The saved LAN or custom address, or null when there is none (or only a loopback one, which is the USB path and
+     * is always tried anyway). Every caller that looks for the laptop uses this, whatever the old "preset" says.
+     */
+    val lanUrl: Flow<String?> = baseUrl.map { it.trim().takeIf { u -> u.isNotEmpty() && !isLoopbackUrl(u) } }
 
     val token: Flow<String> = dataStore.data.map { prefs -> prefs[Keys.TOKEN] ?: "" }
 

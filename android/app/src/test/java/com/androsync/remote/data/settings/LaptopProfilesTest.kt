@@ -128,4 +128,15 @@ class LaptopProfilesTest {
         assertEquals("", r.token.first())
         assertEquals(emptyList<LaptopProfile>(), r.laptops.first())
     }
+
+    @Test
+    fun `the saved LAN address is empty by default and a loopback one is ignored`() = runBlocking {
+        val r = repo()
+        assertEquals("", r.baseUrl.first())
+        assertNull(r.lanUrl.first())
+        r.setBaseUrl("http://127.0.0.1:8765")
+        assertNull(r.lanUrl.first())
+        r.setBaseUrl(" http://192.0.2.5:8765 ")
+        assertEquals("http://192.0.2.5:8765", r.lanUrl.first())
+    }
 }

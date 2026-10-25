@@ -43,7 +43,7 @@ fun rememberConnectionViewModel(): ConnectionViewModel {
 fun rememberSetupViewModel(addNew: Boolean = false): SetupViewModel {
     val container = rememberAppContainer()
     val factory = remember(container, addNew) {
-        viewModelFactory { initializer { SetupViewModel(container.settingsRepository, addNew = addNew) } }
+        viewModelFactory { initializer { SetupViewModel(container.settingsRepository, addNew = addNew, connectionProbe = container.connectionProbe) } }
     }
     // A separate key for the "add a laptop" form, so it never reuses the view model of the form that edits the current laptop.
     return viewModel(key = if (addNew) "setup-add" else "setup", factory = factory)

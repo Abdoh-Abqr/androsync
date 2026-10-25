@@ -79,13 +79,33 @@ private fun isTailscaleHost(host: String): Boolean {
 /** True when [url] points at a Tailscale address (see [classifyQrUrls]), whichever settings field it was saved in. */
 fun isTailscaleUrl(url: String): Boolean = hostOf(url)?.let(::isTailscaleHost) == true
 
+/** True for the phone's own loopback address (the USB path through `adb reverse`), which is never a saved address. */
+fun isLoopbackUrl(url: String): Boolean = hostOf(url)?.let { it == "localhost" || it.startsWith("127.") } == true
+
 /**
- * Repairs the saved addresses when a Tailscale address ended up in the LAN field (the old QR scan and the Setup form
- * both did that): returns the corrected `(lan, tailscale)` pair, or null when nothing needs to move.
- * The LAN field becomes empty; an already saved Tailscale address is never overwritten.
+ * Puts each typed or saved address where it belongs: a loopback address is dropped (USB needs no address), a Tailscale
+ * address typed into the LAN field moves to the Tailscale field (never replacing one already there). Returns
+ * `(tailscale, lan)`.
+ */
+fun normalizeAddresses(tailscale: String, lan: String): Pair<String, String> {
+    var ts = tailscale.trim()
+    var l = lan.trim()
+    if (isLoopbackUrl(ts)) ts = ""
+    if (isLoopbackUrl(l)) l = ""
+    if (l.isNotEmpty() && isTailscaleUrl(l)) {
+        if (ts.isEmpty()) ts = l
+        l = ""
+    }
+    return ts to l
+}
+
+/**
+ * Repairs the saved addresses (the old QR scan and the Setup form both saved a Tailscale address in the LAN field, and
+ * the USB loopback address was the LAN field's default): returns the corrected `(lan, tailscale)` pair, or null when
+ * nothing needs to change.
  */
 fun repairSavedAddresses(lan: String, tailscale: String): Pair<String, String>? {
-    if (lan.isBlank() || !isTailscaleUrl(lan)) return null
-    return if (tailscale.isBlank()) "" to lan else "" to tailscale
+    val (fixedTailscale, fixedLan) = normalizeAddresses(tailscale, lan)
+    return if (fixedTailscale == tailscale && fixedLan == lan) null else fixedLan to fixedTailscale
 }
 

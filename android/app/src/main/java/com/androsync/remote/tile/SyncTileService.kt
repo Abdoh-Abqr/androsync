@@ -58,8 +58,7 @@ class SyncTileService : TileService() {
             setTile("Not set up", Tile.STATE_UNAVAILABLE)
             return
         }
-        val preset = settings.preset.first()
-        val lanUrl = if (preset == Preset.LAN) settings.baseUrl.first() else null
+        val lanUrl = settings.lanUrl.first()
         val tailscaleUrl = settings.tailscaleUrl.first()
 
         when (val outcome = container.connectionProbe.probe(token, lanUrl, tailscaleUrl)) {

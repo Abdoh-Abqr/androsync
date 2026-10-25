@@ -103,10 +103,10 @@ class ConnectionViewModel(
         // The saved address is tried whatever the preset says: a QR scan or the Setup form stores it there, and the
         // Settings "Test connection" and the agent already use it that way. Only trying it for the LAN preset left the
         // app saying "laptop not reachable" while the test button said OK.
-        var lanUrl = settingsRepository.baseUrl.first().takeIf { it.isNotBlank() }
+        var lanUrl = settingsRepository.lanUrl.first()
         var tailscaleUrl = settingsRepository.tailscaleUrl.first()
         // Earlier versions saved a Tailscale address in the LAN field: move it to where it belongs.
-        repairSavedAddresses(lanUrl.orEmpty(), tailscaleUrl)?.let { (lan, tailscale) ->
+        repairSavedAddresses(settingsRepository.baseUrl.first(), tailscaleUrl)?.let { (lan, tailscale) ->
             settingsRepository.setBaseUrl(lan)
             settingsRepository.setTailscaleUrl(tailscale)
             lanUrl = lan.takeIf { it.isNotBlank() }

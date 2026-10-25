@@ -297,7 +297,7 @@ class QrDialog(tk.Toplevel):
         token_entry.grid(row=1, column=0, sticky="we", padx=8)
 
         for i, url in enumerate(urls):
-            ttk.Label(self, text=f"URL: {url}").grid(row=2 + i, column=0, sticky="w", padx=8, pady=(4 if i == 0 else 0, 0))
+            ttk.Label(self, text=f"{service.url_label(url)}: {url}").grid(row=2 + i, column=0, sticky="w", padx=8, pady=(4 if i == 0 else 0, 0))
 
         self._draw_qr(token, urls, row=2 + len(urls))
 

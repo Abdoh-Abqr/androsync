@@ -82,7 +82,7 @@ class AgentService : Service() {
             }
             val outcome = container.connectionProbe.probe(
                 token = token,
-                lanUrl = container.settingsRepository.baseUrl.first().takeIf { it.isNotBlank() },
+                lanUrl = container.settingsRepository.lanUrl.first(),
                 tailscaleUrl = container.settingsRepository.tailscaleUrl.first(),
             )
             if (outcome !is ProbeOutcome.Reachable) {

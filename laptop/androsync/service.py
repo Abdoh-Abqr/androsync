@@ -495,6 +495,24 @@ def build_urls(config: Config) -> list[str]:
     return urls
 
 
+def url_label(url: str) -> str:
+    """Name what kind of address ``url`` is, so a person can tell the lines of `androsync qr` apart (task 33c)."""
+    import ipaddress
+    from urllib.parse import urlsplit
+
+    host = urlsplit(url).hostname or ""
+    if host == "localhost" or host.startswith("127."):
+        return "USB cable"
+    if host.endswith(".ts.net"):
+        return "Tailscale"
+    try:
+        octets = ipaddress.IPv4Address(host).packed
+    except ValueError:
+        return "LAN / Wi-Fi"
+    # Tailscale hands out addresses from the carrier-grade NAT block: first number 100, second 64 to 127.
+    return "Tailscale" if octets[0] == 100 and 64 <= octets[1] <= 127 else "LAN / Wi-Fi"
+
+
 def laptop_name() -> str:
     """The name the phone app shows for this laptop, taken from its host name (task 33c)."""
     import socket
@@ -518,9 +536,10 @@ def cmd_qr(args: argparse.Namespace) -> int:
         raise ConfigError("service.token is not set - run `androsync service install` first")
 
     urls = build_urls(config)
+    print(f"Laptop: {laptop_name()}")
     print(f"Token: {config.service.token}")
     for url in urls:
-        print(f"URL: {url}")
+        print(f"{url_label(url) + ':':<13}{url}")
 
     payload = qr_payload(urls, config.service.token)
 

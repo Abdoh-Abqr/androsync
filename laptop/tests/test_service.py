@@ -660,3 +660,14 @@ def test_qr_payload_carries_the_laptop_name_the_urls_and_the_token(monkeypatch):
     monkeypatch.setattr("socket.gethostname", lambda: "work-laptop")
     payload = json.loads(service.qr_payload(["http://127.0.0.1:8765", "http://100.64.0.1:8765"], "tok"))
     assert payload == {"name": "work-laptop", "urls": ["http://127.0.0.1:8765", "http://100.64.0.1:8765"], "token": "tok"}
+
+
+def test_url_label_names_each_kind_of_address():
+    from androsync import service
+
+    assert service.url_label("http://127.0.0.1:8765") == "USB cable"
+    assert service.url_label("http://100.64.0.7:8765") == "Tailscale"
+    assert service.url_label("http://100.127.255.1:8765") == "Tailscale"
+    assert service.url_label("http://box.tail1.ts.net:8765") == "Tailscale"
+    assert service.url_label("http://192.168.0.5:8765") == "LAN / Wi-Fi"
+    assert service.url_label("http://100.128.0.1:8765") == "LAN / Wi-Fi"  # just outside the Tailscale range

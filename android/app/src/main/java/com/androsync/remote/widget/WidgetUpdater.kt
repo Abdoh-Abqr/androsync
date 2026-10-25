@@ -26,8 +26,7 @@ suspend fun refreshWidgets(context: Context) {
 
     val token = settings.token.first()
     if (token.isNotBlank()) {
-        val preset = settings.preset.first()
-        val lanUrl = if (preset == Preset.LAN) settings.baseUrl.first() else null
+        val lanUrl = settings.lanUrl.first()
         val tailscaleUrl = settings.tailscaleUrl.first()
 
         val outcome = container.connectionProbe.probe(token, lanUrl, tailscaleUrl)

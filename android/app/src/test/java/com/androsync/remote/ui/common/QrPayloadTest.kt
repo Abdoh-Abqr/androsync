@@ -133,4 +133,20 @@ class QrPayloadTest {
         assertEquals("work-laptop", withName.name)
         assertNull(parseQrPayload("""{"urls":["http://127.0.0.1:8765"],"token":"t"}""")!!.name)
     }
+
+    @Test
+    fun `normalizeAddresses drops loopback and moves a Tailscale address out of the LAN field`() {
+        assertEquals("" to "", normalizeAddresses("", "http://127.0.0.1:8765"))
+        assertEquals("http://100.64.0.7:8765" to "", normalizeAddresses("", "http://100.64.0.7:8765"))
+        assertEquals("http://100.64.0.1:8765" to "", normalizeAddresses("http://100.64.0.1:8765", "http://100.64.0.7:8765"))
+        assertEquals("http://100.64.0.1:8765" to "http://192.0.2.5:8765", normalizeAddresses(" http://100.64.0.1:8765 ", "http://192.0.2.5:8765"))
+        assertEquals("" to "", normalizeAddresses("http://127.0.0.1:8765", ""))
+    }
+
+    @Test
+    fun `repairSavedAddresses clears the USB loopback address that used to be the LAN default`() {
+        assertEquals("" to "", repairSavedAddresses("http://127.0.0.1:8765", ""))
+        assertEquals("" to "http://100.64.0.1:8765", repairSavedAddresses("http://127.0.0.1:8765", "http://100.64.0.1:8765"))
+        assertEquals(null, repairSavedAddresses("", ""))
+    }
 }

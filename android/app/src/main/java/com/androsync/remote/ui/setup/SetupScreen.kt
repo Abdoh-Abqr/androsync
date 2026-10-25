@@ -13,7 +13,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -26,7 +25,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.androsync.remote.data.settings.Preset
 import com.androsync.remote.ui.common.AndroSyncTopBar
 import com.androsync.remote.ui.common.ConnectionState
 import com.androsync.remote.ui.common.ProjectLinks
@@ -70,28 +68,27 @@ fun SetupScreen(
         ) {
             Text(if (addNew) "Add another laptop" else "Connect to your laptop", style = MaterialTheme.typography.titleLarge)
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = uiState.preset == Preset.USB,
-                    onClick = { viewModel.onPresetSelected(Preset.USB) },
-                    label = { Text("USB") },
-                )
-                FilterChip(
-                    selected = uiState.preset == Preset.TAILSCALE,
-                    onClick = { viewModel.onPresetSelected(Preset.TAILSCALE) },
-                    label = { Text("Remote") },
-                )
-                FilterChip(
-                    selected = uiState.preset == Preset.LAN,
-                    onClick = { viewModel.onPresetSelected(Preset.LAN) },
-                    label = { Text("LAN") },
-                )
-            }
+            Text(
+                "Scan the QR code from `androsync qr` (or the window's Show QR). It fills in everything below.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            uiState.scannedName?.let { Text("Laptop: $it", style = MaterialTheme.typography.titleSmall) }
 
             OutlinedTextField(
-                value = uiState.url,
-                onValueChange = viewModel::onUrlChange,
-                label = { Text("Laptop URL") },
+                value = uiState.tailscaleUrl,
+                onValueChange = viewModel::onTailscaleUrlChange,
+                label = { Text("Tailscale address") },
+                supportingText = { Text("Works from anywhere, with Tailscale on both devices") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            OutlinedTextField(
+                value = uiState.lanUrl,
+                onValueChange = viewModel::onLanUrlChange,
+                label = { Text("LAN address (optional)") },
+                supportingText = { Text("Same Wi-Fi only. The USB cable needs no address.") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 modifier = Modifier.fillMaxWidth(),

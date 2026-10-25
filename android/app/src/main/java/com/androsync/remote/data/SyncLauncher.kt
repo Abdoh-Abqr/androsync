@@ -36,8 +36,7 @@ class SyncLauncher(
         val token = settingsRepository.token.first()
         if (token.isBlank()) throw ApiException(code = 401, message = "No token saved")
 
-        val preset = settingsRepository.preset.first()
-        val lanUrl = if (preset == Preset.LAN) settingsRepository.baseUrl.first() else null
+        val lanUrl = settingsRepository.lanUrl.first()
         val tailscaleUrl = settingsRepository.tailscaleUrl.first()
 
         val result = when (val outcome = connectionProbe.probe(token, lanUrl, tailscaleUrl)) {
