@@ -40,6 +40,8 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Switch
+import androidx.compose.material3.FilterChip
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -147,6 +149,11 @@ fun PairsScreen(
     }
 
     val syncEnabled = connectionState is ConnectionState.Connected
+    // Task 33a: with pairs bound to different phones, a row of chips narrows the list to one phone's pairs plus the
+    // "any phone" pairs. Null = show everything.
+    val devices = (connectionState as? ConnectionState.Connected)?.devices.orEmpty()
+    var phoneFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    val phonesInUse = phoneChoices(devices, alsoKeep = uiState.pairs.map { it.device })
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -215,8 +222,27 @@ fun PairsScreen(
                         contentPadding = PaddingValues(12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        items(uiState.pairs, key = { it.name }) { pair ->
+                        if (phonesInUse.size > 1) {
+                            item(key = "phone-filter") {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    FilterChip(
+                                        selected = phoneFilter == null,
+                                        onClick = { phoneFilter = null },
+                                        label = { Text("All phones") },
+                                    )
+                                    phonesInUse.forEach { phone ->
+                                        FilterChip(
+                                            selected = phoneFilter == phone.id,
+                                            onClick = { phoneFilter = phone.id },
+                                            label = { Text(phone.label) },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        items(filterPairsForPhone(uiState.pairs, phoneFilter), key = { it.name }) { pair ->
                             PairCard(
+                                phoneLabel = phoneLabel(pair.device, devices),
                                 pair = pair,
                                 syncEnabled = syncEnabled,
                                 pendingCount = uiState.pendingCounts[pair.name] ?: 0,
@@ -293,6 +319,7 @@ private suspend fun handlePairsError(
 
 @Composable
 private fun PairCard(
+    phoneLabel: String? = null,
     pair: PairDto,
     syncEnabled: Boolean,
     pendingCount: Int,
@@ -344,7 +371,9 @@ private fun PairCard(
                 }
             }
             Text(
-                directionArrowText(pair.direction) + if (pair.transport == "agent") "  ·  via this app" else "",
+                directionArrowText(pair.direction) +
+                    (if (pair.transport == "agent") "  ·  via this app" else "") +
+                    (if (phoneLabel != null) "  ·  $phoneLabel" else ""),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(

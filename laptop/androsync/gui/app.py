@@ -351,6 +351,10 @@ class App:
                 config_edit.save_raw(config_path, raw)
                 state_reset = False
             else:
+                # The dialog only knows some settings; keep the rest of the saved pair (ignore patterns, enabled,
+                # the phone it is bound to, ...) instead of replacing the whole record with the dialog's few keys.
+                saved = next((p for p in raw.get("pairs") or [] if p.get("name") == original_name), {})
+                pair_dict = {**saved, **pair_dict}
                 state_reset = config_edit.update_pair_and_state(config_path, original_name, pair_dict)
         except ConfigError as exc:
             messagebox.showerror("Could not save", str(exc))

@@ -267,3 +267,32 @@ def test_set_default_transport_rejects_anything_else(tmp_path):
 
     with pytest.raises(ConfigError):
         config_edit.set_default_transport({"pairs": []}, "carrier-pigeon")
+
+
+def test_update_pair_keeps_settings_the_edit_form_does_not_have(tmp_path):
+    from androsync import config_edit
+
+    raw = {
+        "device": "auto",
+        "pairs": [
+            {
+                "name": "vault", "local": "/x", "remote": "/sdcard/vault", "direction": "two-way",
+                "conflict": "local-wins", "versioning": "git", "conflict_copies": "beside",
+                "undo": {"keep_runs": 3}, "safety": {"max_delete_count": 10},
+            }
+        ],
+    }
+    # What the app sends: only the keys on its form, with "conflict" left out = back to the default.
+    new = config_edit.update_pair(raw, "vault", {"name": "vault", "local": "/x", "remote": "/sdcard/vault", "direction": "two-way"})
+    pair = new["pairs"][0]
+    assert "conflict" not in pair  # a form key left out is reset to the default, as before
+    assert pair["versioning"] == "git" and pair["conflict_copies"] == "beside"
+    assert pair["undo"] == {"keep_runs": 3} and pair["safety"] == {"max_delete_count": 10}
+
+
+def test_update_pair_lets_the_edit_override_a_key_it_does_send():
+    from androsync import config_edit
+
+    raw = {"pairs": [{"name": "a", "local": "/x", "remote": "/sdcard/a", "direction": "two-way", "versioning": "git"}]}
+    new = config_edit.update_pair(raw, "a", {"name": "a", "local": "/x", "remote": "/sdcard/a", "direction": "two-way", "versioning": "none"})
+    assert new["pairs"][0]["versioning"] == "none"

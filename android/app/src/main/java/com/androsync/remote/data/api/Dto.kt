@@ -34,6 +34,10 @@ data class DeviceStateDto(
     val serial: String,
     val state: String,
     val transport: String? = null,
+    /** The phone's hardware serial: what a pair's `device` holds (task 33a). Same over USB and Wi-Fi. */
+    val id: String? = null,
+    /** The name the user gave the phone (`androsync phone set`), or null. */
+    val name: String? = null,
 )
 
 /** The running job as every ping reports it: enough for the "sync running" bar on any screen of any device. */
@@ -66,6 +70,8 @@ data class PairDto(
     val enabled: Boolean = true,
     @SerialName("last_run") val lastRun: String? = null,
     @SerialName("last_result") val lastResult: String? = null,
+    /** "any" or the id of the phone this pair belongs to (task 33a). */
+    val device: String = "any",
 )
 
 /**
@@ -197,6 +203,8 @@ data class PairRequest(
     val enabled: Boolean? = null,
     /** Omitted for the default, adb; "agent" makes the phone app do the file work (task 37d). */
     val transport: String? = null,
+    /** Omitted for any phone; otherwise the id of the phone the pair belongs to (task 33a). */
+    val device: String? = null,
 )
 
 /** One entry of `GET /v1/browse` -> {..., entries: [{name, is_dir, size, hidden}], ...}. */

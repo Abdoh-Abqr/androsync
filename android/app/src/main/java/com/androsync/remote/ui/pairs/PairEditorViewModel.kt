@@ -70,6 +70,8 @@ data class PairEditorUiState(
      * replaces the whole record, so dropping it would silently turn an agent pair back into an adb pair.
      */
     val transport: String = "adb",
+    /** "any" or the id of the phone this pair belongs to (task 33a). Carried through like [transport]. */
+    val device: String = "any",
     val saving: Boolean = false,
     val formError: String? = null,
     val browse: BrowseUiState? = null,
@@ -153,6 +155,7 @@ class PairEditorViewModel(
                             conflict = pair.conflict.takeIf { c -> c != ConflictPolicy.NEWEST_WINS },
                             enabled = pair.enabled,
                             transport = pair.transport,
+                            device = pair.device,
                             originalLocal = pair.local,
                             originalRemote = pair.remote,
                         )
@@ -195,6 +198,8 @@ class PairEditorViewModel(
 
     fun onTransportChange(value: String) = _uiState.update { it.copy(transport = value) }
 
+    fun onDeviceChange(value: String) = _uiState.update { it.copy(device = value) }
+
     fun save() {
         val state = _uiState.value
         val error = validatePairForm(state.name, state.local, state.remote)
@@ -225,6 +230,7 @@ class PairEditorViewModel(
                 ignore = ignoreList.ifEmpty { null },
                 enabled = state.enabled,
                 transport = state.transport.takeIf { it != "adb" },
+                device = state.device.takeIf { it != ANY_PHONE },
             )
             try {
                 if (state.isNew) {

@@ -151,6 +151,29 @@ fun PairEditorScreen(
                 }
             }
 
+            // Which phone the pair belongs to (task 33a): shown when more than one phone can be told apart.
+            val phones = phoneChoices(
+                (connectionState as? ConnectionState.Connected)?.devices.orEmpty(),
+                alsoKeep = listOf(uiState.device),
+            )
+            if (phones.size > 1 || uiState.device != ANY_PHONE) {
+                Text("Phone", style = MaterialTheme.typography.titleSmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = uiState.device == ANY_PHONE,
+                        onClick = { viewModel.onDeviceChange(ANY_PHONE) },
+                        label = { Text("Any phone") },
+                    )
+                    phones.forEach { phone ->
+                        FilterChip(
+                            selected = uiState.device == phone.id,
+                            onClick = { viewModel.onDeviceChange(phone.id) },
+                            label = { Text(phone.label) },
+                        )
+                    }
+                }
+            }
+
             Text("Conflict policy", style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ConflictChip(null, "newest wins", uiState.conflict, viewModel::onConflictChange)

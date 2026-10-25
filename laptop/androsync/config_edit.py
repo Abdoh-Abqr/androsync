@@ -142,6 +142,14 @@ def add_pair(raw: dict[str, Any], pair_dict: dict[str, Any]) -> dict[str, Any]:
     return new_raw
 
 
+#: The pair settings the app and the window edit. An edit sends all of these it knows; a key left out means "back to the
+#: default". Every OTHER key a pair has (versioning, conflict_copies, undo, safety, transfer, ...) is not on those forms
+#: and must survive an edit instead of being silently erased.
+FORM_KEYS = frozenset(
+    {"name", "local", "remote", "direction", "conflict", "propagate_deletes", "ignore", "enabled", "transport", "device"}
+)
+
+
 def update_pair(raw: dict[str, Any], name: str, pair_dict: dict[str, Any]) -> dict[str, Any]:
     """Return a new raw dict with the pair named ``name`` replaced by ``pair_dict``.
 
@@ -159,8 +167,10 @@ def update_pair(raw: dict[str, Any], name: str, pair_dict: dict[str, Any]) -> di
     new_name = pair_dict.get("name", name)
     if new_name != name and any(p.get("name") == new_name for p in pairs):
         raise ConfigError(f"a pair named {new_name!r} already exists")
+    # Keep what the edit form does not know about (see FORM_KEYS); what it does know replaces the old values.
+    kept = {k: v for k, v in pairs[idx].items() if k not in FORM_KEYS and k not in pair_dict}
     pairs = list(pairs)
-    pairs[idx] = pair_dict
+    pairs[idx] = {**pair_dict, **kept}
     new_raw = dict(raw)
     new_raw["pairs"] = pairs
     return new_raw
