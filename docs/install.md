@@ -39,7 +39,7 @@ Check that it works: `androsync devices` lists your phone once USB debugging is 
 ## macOS and Windows
 
 The laptop program is not ready for these systems yet, so there is no install guide that I can honestly call tested.
-What is known (tracked in [issue 29](https://github.com/Abdoh-Abqr/androsync/issues/29)):
+What is known (tracked in [issue 8](https://github.com/Abdoh-Abqr/androsync/issues/8)):
 
 - The sync engine, the command line and the window are plain Python and `adb`, so they may run. Nothing was tried on
   a Mac or a Windows PC.

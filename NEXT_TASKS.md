@@ -1,5 +1,9 @@
 # NEXT_TASKS — hand-off for the next implementation session
 
+> **Issue numbers.** Numbers like "issue #10" in this file and in `PLAN.md` refer to the project's first, private repository
+> (`androsync-private`, kept as an archive). The work still open was recreated in this repository as issues #1 to #8.
+
+
 Read this file first, then `PLAN.md` (design, decision table, API, config) and `CODE_INDEX.md`
 (one-line-per-file map of the codebase). As of 2026-10-14, every task through Phase J, Phase K
 (32a–32c), task 33e and Phase M (task 34) below is DONE and committed - see each task's own

@@ -136,7 +136,7 @@ Three common errors:
 
 - The first sync of any pair only ever copies, never deletes - see above.
 - One phone per laptop, and one laptop per phone app, today (also in agent mode).
-- Linux (Ubuntu) only, for the laptop side. macOS and Windows are planned ([issue 29](https://github.com/Abdoh-Abqr/androsync/issues/29), [install guide](docs/install.md)).
+- Linux (Ubuntu) only, for the laptop side. macOS and Windows are planned ([issue 8](https://github.com/Abdoh-Abqr/androsync/issues/8), [install guide](docs/install.md)).
 - There will never be an iPhone version: iOS has no ADB and no way for a PC to read or write its
   files directly, which this design depends on.
 

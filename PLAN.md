@@ -1,5 +1,9 @@
 # androsync — USB/Wi‑Fi folder sync between Ubuntu laptop and Android phone
 
+> **Issue numbers.** Numbers like "issue #10" in this file and in `PLAN.md` refer to the project's first, private repository
+> (`androsync-private`, kept as an archive). The work still open was recreated in this repository as issues #1 to #8.
+
+
 ## Context
 
 Goal: keep chosen folder pairs in sync between the laptop and the phone, first over the USB cable,
