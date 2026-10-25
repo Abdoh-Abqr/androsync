@@ -495,6 +495,18 @@ def build_urls(config: Config) -> list[str]:
     return urls
 
 
+def laptop_name() -> str:
+    """The name the phone app shows for this laptop, taken from its host name (task 33c)."""
+    import socket
+
+    return socket.gethostname() or "laptop"
+
+
+def qr_payload(urls: list[str], token: str) -> str:
+    """The JSON a pairing QR code carries: the laptop's name, every address it can be reached at, and the token."""
+    return json.dumps({"name": laptop_name(), "urls": urls, "token": token})
+
+
 def cmd_qr(args: argparse.Namespace) -> int:
     config_path = args.config if getattr(args, "config", None) else default_config_path()
     try:
@@ -510,7 +522,7 @@ def cmd_qr(args: argparse.Namespace) -> int:
     for url in urls:
         print(f"URL: {url}")
 
-    payload = json.dumps({"urls": urls, "token": config.service.token})
+    payload = qr_payload(urls, config.service.token)
 
     try:
         import qrcode

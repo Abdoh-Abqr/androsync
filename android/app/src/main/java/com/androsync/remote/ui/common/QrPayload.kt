@@ -11,7 +11,7 @@ import kotlinx.serialization.json.Json
  * particular order) plus the bearer token.
  */
 @Serializable
-data class QrPayload(val urls: List<String> = emptyList(), val token: String = "")
+data class QrPayload(val urls: List<String> = emptyList(), val token: String = "", val name: String? = null)
 
 private val json = Json { ignoreUnknownKeys = true }
 

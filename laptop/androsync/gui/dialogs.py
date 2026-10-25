@@ -15,6 +15,7 @@ from tkinter import filedialog, messagebox, ttk
 from typing import Callable
 
 from androsync.browse import BrowseError, BrowseResult
+from androsync import service
 from androsync.config import DIRECTIONS, CONFLICT_POLICIES, TRANSPORT_MODES, PairConfig
 from androsync.phone_path import PhonePathError, check_remote, normalize_remote, validate_remote
 
@@ -313,7 +314,7 @@ class QrDialog(tk.Toplevel):
             )
             return
 
-        payload = json.dumps({"urls": urls, "token": token})
+        payload = service.qr_payload(urls, token)
         qr = qrcode.QRCode(border=1, box_size=6)
         qr.add_data(payload)
         qr.make(fit=True)

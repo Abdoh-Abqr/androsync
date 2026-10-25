@@ -5,13 +5,16 @@ import androidx.lifecycle.viewModelScope
 import com.androsync.remote.data.api.ApiClient
 import com.androsync.remote.data.api.ConnectionProbe
 import com.androsync.remote.data.api.ProbeOutcome
+import com.androsync.remote.data.settings.LaptopProfile
 import com.androsync.remote.data.settings.SettingsRepository
 import com.androsync.remote.ui.common.ConnectionState
 import com.androsync.remote.ui.common.repairSavedAddresses
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
@@ -44,6 +47,22 @@ class ConnectionViewModel(
     val activeApiClient: StateFlow<ApiClient?> = _activeApiClient.asStateFlow()
 
     private var pollingJob: Job? = null
+
+    /** Every laptop the app knows, and which one is in use (task 33c). */
+    val laptops: StateFlow<List<LaptopProfile>> =
+        settingsRepository.laptops.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val selectedLaptopId: StateFlow<String?> =
+        settingsRepository.selectedLaptopId.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Switches the whole app (pairs, tile, widget, agent) to another laptop and looks for it at once. */
+    fun selectLaptop(id: String) {
+        viewModelScope.launch {
+            settingsRepository.selectLaptop(id)
+            _activeApiClient.value = null
+            _connectionState.value = ConnectionState.Unreachable("Switching laptop")
+            pollOnce()
+        }
+    }
 
     fun start() {
         if (pollingJob?.isActive == true) return

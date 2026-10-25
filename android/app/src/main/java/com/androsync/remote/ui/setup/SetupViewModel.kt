@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.androsync.remote.data.api.ApiClient
 import com.androsync.remote.data.api.ApiException
 import com.androsync.remote.data.api.PingDto
+import com.androsync.remote.data.settings.LaptopProfile
+import com.androsync.remote.data.settings.LaptopProfiles
 import com.androsync.remote.data.settings.Preset
 import com.androsync.remote.data.settings.SettingsRepository
 import com.androsync.remote.ui.common.classifyQrUrls
@@ -35,6 +37,8 @@ data class SetupUiState(
     val preset: Preset = Preset.USB,
     /** From the last QR scan: saved with [SetupViewModel.save] so the Tailscale URL need not be typed (task 37c). */
     val scannedTailscaleUrl: String? = null,
+    /** The laptop's own name from the QR code (task 33c), used to name the saved laptop. */
+    val scannedName: String? = null,
     val testState: TestConnectionState = TestConnectionState.Idle,
 )
 
@@ -45,6 +49,8 @@ data class SetupUiState(
  */
 class SetupViewModel(
     private val settingsRepository: SettingsRepository,
+    /** True for "add another laptop": start blank and save as a new laptop instead of editing the current one. */
+    private val addNew: Boolean = false,
     private val clientFactory: (baseUrl: String, token: String) -> ApiClient = { url, token ->
         ApiClient(url, token)
     },
@@ -54,7 +60,9 @@ class SetupViewModel(
     val uiState: StateFlow<SetupUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
+        if (addNew) {
+            _uiState.update { it.copy(url = "", token = "") }
+        } else viewModelScope.launch {
             val savedPreset = settingsRepository.preset.first()
             val savedUrl = settingsRepository.baseUrl.first()
             val savedToken = settingsRepository.token.first()
@@ -99,6 +107,7 @@ class SetupViewModel(
                 // The Tailscale address goes to its own field on save; only a LAN address replaces the URL field.
                 url = addresses.lan ?: (if (addresses.tailscale == null) pickUrlForPreset(payload.urls, it.preset) else null) ?: it.url,
                 scannedTailscaleUrl = addresses.tailscale ?: it.scannedTailscaleUrl,
+                scannedName = payload.name?.takeIf { n -> n.isNotBlank() } ?: it.scannedName,
                 testState = TestConnectionState.Idle,
             )
         }
@@ -137,16 +146,22 @@ class SetupViewModel(
         viewModelScope.launch {
             // A Tailscale address belongs in the Tailscale field, not the LAN one (it was saved there before, and the
             // app then called a working Tailscale connection "LAN").
-            if (isTailscaleUrl(current.url)) {
-                settingsRepository.setTailscaleUrl(current.url)
-                settingsRepository.setBaseUrl("")
-                settingsRepository.setPreset(Preset.TAILSCALE)
-            } else {
-                settingsRepository.setBaseUrl(current.url)
-                settingsRepository.setPreset(current.preset)
-            }
-            settingsRepository.setToken(current.token)
-            current.scannedTailscaleUrl?.let { settingsRepository.setTailscaleUrl(it) }
+            val typedIsTailscale = isTailscaleUrl(current.url)
+            val tailscale = current.scannedTailscaleUrl ?: if (typedIsTailscale) current.url else ""
+            val lan = if (typedIsTailscale) "" else current.url
+            val existing = settingsRepository.laptops.first()
+            val selectedId = settingsRepository.selectedLaptopId.first()
+            // "Add another laptop" makes a new entry; the normal form edits the laptop that is selected now.
+            val editing = if (addNew) null else existing.firstOrNull { it.id == selectedId }
+            val laptop = LaptopProfile(
+                id = editing?.id ?: if (existing.isEmpty()) LaptopProfiles.MIGRATED_ID else LaptopProfiles.newId(),
+                name = current.scannedName ?: editing?.name ?: LaptopProfiles.displayName(null, existing),
+                baseUrl = lan,
+                tailscaleUrl = tailscale.ifEmpty { editing?.tailscaleUrl.orEmpty() },
+                token = current.token,
+            )
+            settingsRepository.saveLaptop(laptop, select = true)
+            settingsRepository.setPreset(if (typedIsTailscale) Preset.TAILSCALE else current.preset)
             onSaved()
         }
     }

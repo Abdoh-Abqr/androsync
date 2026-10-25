@@ -46,7 +46,8 @@ fun SetupScreen(
     connectionState: ConnectionState,
     onSaved: () -> Unit,
     onConnectPhone: () -> Unit = {},
-    viewModel: SetupViewModel = rememberSetupViewModel(),
+    addNew: Boolean = false,
+    viewModel: SetupViewModel = rememberSetupViewModel(addNew),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -67,7 +68,7 @@ fun SetupScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Connect to your laptop", style = MaterialTheme.typography.titleLarge)
+            Text(if (addNew) "Add another laptop" else "Connect to your laptop", style = MaterialTheme.typography.titleLarge)
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(

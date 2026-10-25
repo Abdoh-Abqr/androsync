@@ -126,4 +126,11 @@ class QrPayloadTest {
         assertEquals(null, repairSavedAddresses("http://192.168.0.5:8765", ""))
         assertEquals(null, repairSavedAddresses("", "http://100.64.0.9:8765"))
     }
+
+    @Test
+    fun `the QR payload carries the laptop name, and older codes without one still parse`() {
+        val withName = parseQrPayload("""{"name":"work-laptop","urls":["http://127.0.0.1:8765"],"token":"t"}""")!!
+        assertEquals("work-laptop", withName.name)
+        assertNull(parseQrPayload("""{"urls":["http://127.0.0.1:8765"],"token":"t"}""")!!.name)
+    }
 }

@@ -650,3 +650,13 @@ def test_svg_asset_is_packaged_and_readable():
         encoding="utf-8"
     )
     assert "<svg" in content
+
+
+def test_qr_payload_carries_the_laptop_name_the_urls_and_the_token(monkeypatch):
+    import json
+
+    from androsync import service
+
+    monkeypatch.setattr("socket.gethostname", lambda: "work-laptop")
+    payload = json.loads(service.qr_payload(["http://127.0.0.1:8765", "http://100.64.0.1:8765"], "tok"))
+    assert payload == {"name": "work-laptop", "urls": ["http://127.0.0.1:8765", "http://100.64.0.1:8765"], "token": "tok"}

@@ -149,6 +149,8 @@ fun PairsScreen(
     }
 
     val syncEnabled = connectionState is ConnectionState.Connected
+    val laptops by connectionViewModel.laptops.collectAsStateWithLifecycle()
+    val selectedLaptop by connectionViewModel.selectedLaptopId.collectAsStateWithLifecycle()
     // Task 33a: with pairs bound to different phones, a row of chips narrows the list to one phone's pairs plus the
     // "any phone" pairs. Null = show everything.
     val devices = (connectionState as? ConnectionState.Connected)?.devices.orEmpty()
@@ -184,6 +186,21 @@ fun PairsScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            // Task 33c: with more than one laptop saved, switch between them right here.
+            if (laptops.size > 1) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    laptops.forEach { laptop ->
+                        FilterChip(
+                            selected = laptop.id == selectedLaptop,
+                            onClick = { connectionViewModel.selectLaptop(laptop.id) },
+                            label = { Text(laptop.name) },
+                        )
+                    }
+                }
+            }
             if (!syncEnabled) {
                 Text(
                     text = "Laptop not reachable — sync disabled",

@@ -114,6 +114,17 @@ private fun AndroSyncNavHost(
                 },
             )
         }
+        composable(Routes.SETUP_ADD) {
+            SetupScreen(
+                connectionState = connectionState,
+                onConnectPhone = { navController.navigate(Routes.CONNECT) },
+                addNew = true,
+                onSaved = {
+                    connectionViewModel.refreshNow()
+                    navController.navigate(Routes.PAIRS) { popUpTo(Routes.PAIRS) { inclusive = true } }
+                },
+            )
+        }
         composable(Routes.PAIRS) {
             PairsScreen(
                 connectionViewModel = connectionViewModel,
@@ -176,6 +187,8 @@ private fun AndroSyncNavHost(
                 connectionState = connectionState,
                 onBack = { navController.popBackStack() },
                 onConnectPhone = { navController.navigate(Routes.CONNECT) },
+                onAddLaptop = { navController.navigate(Routes.SETUP_ADD) },
+                onLaptopChanged = connectionViewModel::refreshNow,
                 onForgotSetup = {
                     navController.navigate(Routes.SETUP) {
                         popUpTo(0) { inclusive = true }

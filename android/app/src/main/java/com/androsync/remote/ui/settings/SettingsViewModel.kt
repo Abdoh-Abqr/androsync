@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.androsync.remote.data.api.ConnectionProbe
 import com.androsync.remote.data.api.ProbeOutcome
 import com.androsync.remote.data.settings.DEFAULT_AUTO_REFRESH_SECONDS
+import com.androsync.remote.data.settings.LaptopProfile
 import com.androsync.remote.data.settings.SettingsRepository
 import com.androsync.remote.ui.setup.TestConnectionState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,8 @@ data class SettingsUiState(
     val pollIntervalSeconds: Int = DEFAULT_AUTO_REFRESH_SECONDS,
     val testState: TestConnectionState = TestConnectionState.Idle,
     val setupHintsEnabled: Boolean = true,
+    val laptops: List<LaptopProfile> = emptyList(),
+    val selectedLaptopId: String? = null,
 )
 
 /**
@@ -42,7 +45,32 @@ class SettingsViewModel(
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch { loadFields() }
+        viewModelScope.launch { settingsRepository.laptops.collect { list -> _uiState.update { it.copy(laptops = list) } } }
         viewModelScope.launch {
+            settingsRepository.selectedLaptopId.collect { id -> _uiState.update { it.copy(selectedLaptopId = id) } }
+        }
+    }
+
+    /** Switch laptop (task 33c): the saved fields change, so the form is reloaded from them. */
+    fun selectLaptop(id: String, onChanged: () -> Unit = {}) {
+        viewModelScope.launch {
+            settingsRepository.selectLaptop(id)
+            loadFields()
+            onChanged()
+        }
+    }
+
+    fun removeLaptop(id: String, onChanged: () -> Unit = {}) {
+        viewModelScope.launch {
+            settingsRepository.removeLaptop(id)
+            loadFields()
+            onChanged()
+        }
+    }
+
+    private suspend fun loadFields() {
+        run {
             _uiState.update {
                 it.copy(
                     tailscaleUrl = settingsRepository.tailscaleUrl.first(),

@@ -135,7 +135,7 @@ Three common errors:
 ### Good to know / limits
 
 - The first sync of any pair only ever copies, never deletes - see above.
-- One phone per laptop, and one laptop per phone app, today (also in agent mode).
+- Several phones and several laptops work: each phone keeps its own history per pair, a pair can be bound to one phone, and the app holds a list of laptops (see [docs/several-devices.md](docs/several-devices.md)). One sync runs at a time on a laptop.
 - Linux (Ubuntu) only, for the laptop side. macOS and Windows are planned ([issue 8](https://github.com/Abdoh-Abqr/androsync/issues/8), [install guide](docs/install.md)).
 - There will never be an iPhone version: iOS has no ADB and no way for a PC to read or write its
   files directly, which this design depends on.

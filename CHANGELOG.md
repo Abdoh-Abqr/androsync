@@ -18,6 +18,9 @@ Safer, stoppable syncs; a guided phone setup; and sync without USB debugging.
   Recent syncs screen; both laptop and phone paths in every action line.
 - **Safety**: phone folders that are not in shared storage are refused; changing a pair's folders resets its
   history; a sync that would delete or copy a lot waits for your OK ("Needs your OK" card and window prompt).
+- **Several phones and several laptops**: every phone has its own history per pair (so a second phone can never make
+  files look deleted), pairs can be bound to a phone, phones can be named (`androsync phone set`), and the app keeps a
+  list of laptops, added by scanning each laptop's QR code. See `docs/several-devices.md`.
 - Syncthing guide (`docs/syncthing.md`), agent mode guide, install guide (`docs/install.md`), an About dialog and a
   donation link, repo links in the app, signed releases built by CI.
 

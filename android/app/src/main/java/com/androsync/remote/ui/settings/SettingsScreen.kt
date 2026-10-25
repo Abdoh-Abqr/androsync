@@ -52,6 +52,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onForgotSetup: () -> Unit,
     onConnectPhone: () -> Unit = {},
+    onAddLaptop: () -> Unit = {},
+    onLaptopChanged: () -> Unit = {},
     viewModel: SettingsViewModel = rememberSettingsViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -68,7 +70,30 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Connection", style = MaterialTheme.typography.titleMedium)
+            Text("Laptops", style = MaterialTheme.typography.titleMedium)
+            uiState.laptops.forEach { laptop ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        laptop.name + if (laptop.id == uiState.selectedLaptopId) "  (in use)" else "",
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (laptop.id != uiState.selectedLaptopId) {
+                        TextButton(onClick = { viewModel.selectLaptop(laptop.id, onLaptopChanged) }) { Text("Use") }
+                    }
+                    TextButton(onClick = { viewModel.removeLaptop(laptop.id, onLaptopChanged) }) { Text("Remove") }
+                }
+            }
+            OutlinedButton(onClick = onAddLaptop, modifier = Modifier.fillMaxWidth()) {
+                Text("Add another laptop (scan its QR code)")
+            }
+
+            HorizontalDivider()
+
+            Text("Connection to the laptop in use", style = MaterialTheme.typography.titleMedium)
 
             OutlinedTextField(
                 value = uiState.tailscaleUrl,

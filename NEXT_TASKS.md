@@ -833,14 +833,14 @@ Design:
   `device` and the Pairs screen filters to pairs bound to "this phone or any" (the daemon maps the
   connected USB serial to the app's ANDROID_ID when both are present during a sync and remembers it).
 
-### 33a. Laptop: per-device state + pair `device` field (`config.py`, `state.py` with migration,
+### 33a. DONE (2026-10-25, public issue #2): history files are keyed `<pair>@<phone>` where the phone is its hardware serial (`ro.serialno`, the same over USB and Wi-Fi); the first phone to sync after the upgrade takes over the old phone-less files once (marker `<pair>.claimed`), a second phone starts fresh (a first run never deletes); rename, reset, purge, runs, pending and the pair list cover every key; `Pair.device` binds a pair to a phone; two phones attached with no phone chosen stop with a message; editing a pair no longer drops settings the form lacks. Original text:  Laptop: per-device state + pair `device` field (`config.py`, `state.py` with migration,
   `executor.py`/`undo.py`/`conflicts.py` path helpers, `transport/adb.py` `resolve_device` for lists,
   `daemon/jobs.py` ambiguous → error). Tests: migration, two serials keep separate snapshots, ambiguity.
-### 33b. Laptop: device registry + per-device Wi‑Fi (`service.devices`, `pair-wifi`, watcher per-device
+### 33b. DONE (2026-10-25, public issue #3): top-level `phones:` (id -> name, wifi_target), `androsync phone list|set|remove`, the ping lists every phone with `id` and `name`, `androsync devices` shows ID and NAME, one Wi-Fi reconnect loop per phone. Original text:  Laptop: device registry + per-device Wi‑Fi (`service.devices`, `pair-wifi`, watcher per-device
   reconnectors, `/v1/ping` devices list, `devices` CLI shows names). Tests with mocked adb.
-### 33c. App: laptop profiles + QR onboarding (`SettingsRepository` migration from single values,
+### 33c. DONE (2026-10-25, public issue #4): the app keeps a list of laptops (`LaptopProfile`; an older single setup becomes the one laptop), the QR code carries the laptop name, Settings lists the laptops (Use, Remove, Add another), the Pairs screen switches between them with chips, and everything else keeps reading the selected laptop's fields so the tile, widget and agent follow the selection. Original text:  App: laptop profiles + QR onboarding (`SettingsRepository` migration from single values,
   chooser UI, `ConnectionProbe` per profile, QR payload `name`, tile/widget on the selected profile).
-### 33d. App + API: pair ↔ phone binding in the UI (`/v1/pairs.device`, editor field "Phone: any / this
+### 33d. DONE (2026-10-25, public issue #5): `/v1/pairs` carries `device`, the editor has a Phone selector (shown when more than one phone can be told apart), the Pairs list has phone chips and the card shows the phone. Not done: choosing "this phone" automatically; the filter is manual. Original text:  App + API: pair ↔ phone binding in the UI (`/v1/pairs.device`, editor field "Phone: any / this
   phone", Pairs list filter, ANDROID_ID mapping).
 
 ### 33e. No addresses of this household in the code (do this first in Phase L; 1 hour) — DONE (2026-10-14)
