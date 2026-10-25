@@ -17,7 +17,8 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Before
+import org.junit.AfterClass
+import org.junit.BeforeClass
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -29,14 +30,20 @@ class SetupViewModelTest {
     val tmp = TemporaryFolder()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    @Before
-    fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
+    // Main is set once for the whole class: a view model of an earlier test may still be finishing its DataStore work on
+    // another thread, and resetting Main between tests made that race ("Dispatchers.Main is used concurrently").
+    companion object {
+        @JvmStatic
+        @BeforeClass
+        fun setMain() = Dispatchers.setMain(UnconfinedTestDispatcher())
+
+        @JvmStatic
+        @AfterClass
+        fun resetMain() = Dispatchers.resetMain()
+    }
 
     @After
-    fun tearDown() {
-        Dispatchers.resetMain()
-        scope.cancel()
-    }
+    fun tearDown() = scope.cancel()
 
     private fun repo() = SettingsRepository(PreferenceDataStoreFactory.create(scope = scope) { File(tmp.root, "s.preferences_pb") })
 
