@@ -41,6 +41,8 @@ fun ConnectionBadge(state: ConnectionState, modifier: Modifier = Modifier) {
         Text(
             text = connectionBadgeLabel(state),
             style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            softWrap = false,
         )
     }
 }

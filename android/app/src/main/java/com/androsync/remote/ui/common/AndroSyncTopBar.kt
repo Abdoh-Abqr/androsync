@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /**
@@ -33,7 +34,7 @@ fun AndroSyncTopBar(
 ) {
     Column {
     TopAppBar(
-        title = { Text(title) },
+        title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         navigationIcon = {
             if (onBack != null) {
                 IconButton(onClick = onBack) {

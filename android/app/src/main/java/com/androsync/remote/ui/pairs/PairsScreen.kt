@@ -163,13 +163,9 @@ fun PairsScreen(
             AndroSyncTopBar(
                 title = "Pairs",
                 connectionState = connectionState,
+                // Preview all and Sync all moved out of the bar: four actions plus the connection badge did not fit
+                // a narrower phone (the title wrapped). They are a row of buttons under the bar now.
                 actions = {
-                    TextButton(onClick = viewModel::previewAll, enabled = syncEnabled) {
-                        Text("Preview")
-                    }
-                    TextButton(onClick = syncAll, enabled = syncEnabled) {
-                        Text("Sync all")
-                    }
                     IconButton(onClick = onNavigateToJobs) {
                         Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Recent syncs")
                     }
@@ -199,6 +195,17 @@ fun PairsScreen(
                             label = { Text(laptop.name) },
                         )
                     }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(onClick = viewModel::previewAll, enabled = syncEnabled, modifier = Modifier.weight(1f)) {
+                    Text("Preview all", maxLines = 1)
+                }
+                Button(onClick = syncAll, enabled = syncEnabled, modifier = Modifier.weight(1f)) {
+                    Text("Sync all", maxLines = 1)
                 }
             }
             if (!syncEnabled) {
