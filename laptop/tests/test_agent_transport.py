@@ -44,6 +44,7 @@ class Env:
             port=0,
             version="test",
             agent=self.broker,
+            config_path=self.config_file,
         )
         self.api.start()
         self.base = f"http://127.0.0.1:{self.api.bound_addresses[0][1]}"
@@ -291,3 +292,43 @@ def test_an_app_that_goes_silent_mid_operation_fails_the_call(monkeypatch, env):
     with pytest.raises(TransportError, match="silent|not connected"):
         env.transport.scan(str(env.phone), IgnoreRules([]))
     env.agent.hold.set()
+
+
+# --- only one phone's agent at a time --------------------------------------------------------------------------
+
+
+def test_a_second_agent_is_refused_while_the_first_is_connected():
+    from androsync.transport.agent import AgentBroker, AgentBusy
+
+    now = [0.0]
+    broker = AgentBroker(clock=lambda: now[0])
+    assert broker.next_op(0, "phone-a") is None  # phone A is now the active agent
+    with pytest.raises(AgentBusy):
+        broker.next_op(0, "phone-b")
+    assert broker.next_op(0, "phone-a") is None  # A keeps working
+
+
+def test_a_second_agent_can_take_over_after_the_first_went_silent():
+    from androsync.transport import agent as agent_module
+    from androsync.transport.agent import AgentBroker
+
+    now = [0.0]
+    broker = AgentBroker(clock=lambda: now[0])
+    broker.next_op(0, "phone-a")
+    now[0] += agent_module.CONNECTED_GRACE + 1
+    assert broker.next_op(0, "phone-b") is None  # no error: B is the active agent now
+
+
+def test_the_http_answer_for_a_busy_laptop_is_409(env):
+    import urllib.error
+
+    assert env.agent.agent_id  # the fake agent identifies itself
+    with pytest.raises(urllib.error.HTTPError) as err:
+        env.get("/v1/agent/next?wait=0&agent=some-other-phone")
+    assert err.value.code == 409
+    assert "another phone" in json.loads(err.value.read())["error"]
+
+
+def test_an_agent_that_does_not_identify_itself_is_not_blocked(env):
+    # Older apps send no id; they keep working (one phone at a time was always the rule in practice).
+    assert env.get("/v1/agent/next?wait=0").status in (200, 204)

@@ -232,6 +232,12 @@ data class MkdirRequest(
     val path: String,
 )
 
+/** Response of `POST /v1/token/rotate` -> {token}. */
+@Serializable
+data class TokenResponse(
+    val token: String,
+)
+
 /** 201 response of `POST /v1/mkdir` -> {path}. */
 @Serializable
 data class MkdirResponse(

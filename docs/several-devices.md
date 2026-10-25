@@ -18,6 +18,19 @@
 - **Undo** only works with the phone that made the sync.
 - **Agent mode** has no phone identity yet, so agent pairs keep one history per pair name.
 
+## Two phones sharing one laptop and its folders
+
+Both phones can have the app and control the same laptop: scan the same QR code on each. A sync still runs one at a
+time, and either phone sees it running and can stop it. Each phone keeps its own history, so a file one phone deletes
+goes to the laptop on that phone's next sync and reaches the other phone on its next sync. Both phones syncing the same
+laptop folder is fine; keep an eye on conflicts if both change the same file.
+
+- **Agent mode: one phone's agent at a time.** The laptop lets only one agent work at once, so an operation meant for one
+  phone can never be done by the other. The second phone's app shows "another phone's agent is already connected" and
+  takes over after the first has been silent for about a minute. Use USB or Wi-Fi debugging (adb) when both phones must
+  sync in the same session.
+- **A new token** (Settings, "Generate a new token") locks out every other phone until it scans the QR code again.
+
 ## Two laptops on one phone
 
 - In the app: **Settings → Laptops → Add another laptop**, and scan the QR code that the other laptop shows

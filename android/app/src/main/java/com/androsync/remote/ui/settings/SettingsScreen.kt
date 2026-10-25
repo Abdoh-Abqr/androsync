@@ -59,6 +59,7 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showForgetDialog by remember { mutableStateOf(false) }
+    var showNewTokenDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = { AndroSyncTopBar(title = "Settings", connectionState = connectionState, onBack = onBack) },
@@ -127,6 +128,11 @@ fun SettingsScreen(
             }
             TestConnectionResult(uiState.testState)
 
+            OutlinedButton(onClick = { showNewTokenDialog = true }, modifier = Modifier.fillMaxWidth()) {
+                Text("Generate a new token")
+            }
+            uiState.tokenMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+
             OutlinedButton(onClick = onConnectPhone, modifier = Modifier.fillMaxWidth()) {
                 Text("Connect your phone (USB debugging)")
             }
@@ -171,6 +177,23 @@ fun SettingsScreen(
 
             SupportSection()
         }
+    }
+
+    if (showNewTokenDialog) {
+        AlertDialog(
+            onDismissRequest = { showNewTokenDialog = false },
+            title = { Text("Generate a new token?") },
+            text = {
+                Text(
+                    "The laptop makes a new token and this app saves it. Every other phone or tool that has the old token " +
+                        "stops working until it scans the QR code again.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showNewTokenDialog = false; viewModel.generateNewToken() }) { Text("Generate") }
+            },
+            dismissButton = { TextButton(onClick = { showNewTokenDialog = false }) { Text("Cancel") } },
+        )
     }
 
     if (showForgetDialog) {

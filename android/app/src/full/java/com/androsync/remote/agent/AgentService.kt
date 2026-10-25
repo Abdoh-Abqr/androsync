@@ -90,7 +90,7 @@ class AgentService : Service() {
                 delay(RETRY_MS)
                 continue
             }
-            val client = AgentClient(outcome.result.baseUrl, token)
+            val client = AgentClient(outcome.result.baseUrl, token, agentId = AgentState.agentId(applicationContext))
             val loop = AgentLoop(
                 client = client,
                 ops = AgentOps(onChanged = ::scanMedia),

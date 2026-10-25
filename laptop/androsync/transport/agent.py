@@ -63,6 +63,10 @@ class _Op:
     done: threading.Event = field(default_factory=threading.Event)
 
 
+class AgentBusy(Exception):
+    """Another phone's agent already holds this laptop; the HTTP layer answers 409 and the second app waits."""
+
+
 class AgentCancelled(Exception):
     """Internal: the operation was cancelled (the user pressed Stop); the HTTP layer answers 410."""
 
@@ -76,6 +80,8 @@ class AgentBroker:
         self._queue: deque[_Op] = deque()
         self._ops: dict[str, _Op] = {}
         self._last_seen: float | None = None
+        #: Who is polling: only one phone's agent at a time, or an operation meant for one phone could be done by another.
+        self._active_agent: str | None = None
 
     # -- state ------------------------------------------------------------------------------------------------
 
@@ -96,10 +102,20 @@ class AgentBroker:
 
     # -- agent side -------------------------------------------------------------------------------------------
 
-    def next_op(self, wait: float = POLL_SECONDS) -> dict[str, Any] | None:
-        """Hand the agent its next operation, waiting up to ``wait`` seconds; ``None`` means "nothing yet"."""
+    def next_op(self, wait: float = POLL_SECONDS, agent_id: str | None = None) -> dict[str, Any] | None:
+        """Hand the agent its next operation, waiting up to ``wait`` seconds; ``None`` means "nothing yet".
+
+        ``agent_id`` names the phone's app. While one agent is connected, a different one is refused with
+        :class:`AgentBusy`; it can take over once the first has been silent for a while.
+        """
         deadline = self._clock() + wait
         with self._cond:
+            if agent_id:
+                silent = None if self._last_seen is None else self._clock() - self._last_seen
+                held = self._active_agent is not None and self._active_agent != agent_id
+                if held and silent is not None and silent <= CONNECTED_GRACE:
+                    raise AgentBusy(self._active_agent)
+                self._active_agent = agent_id
             self._last_seen = self._clock()
             while True:
                 while self._queue:

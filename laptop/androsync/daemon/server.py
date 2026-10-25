@@ -19,6 +19,7 @@ import hmac
 import json
 import logging
 import re
+import secrets
 import threading
 import time
 from dataclasses import asdict
@@ -33,7 +34,7 @@ from androsync.config import Config, ConfigError
 from androsync.conflicts import ConflictsError, clean, list_conflicts, restore
 from androsync.daemon.jobs import JobBusy, JobRunner, current_job_dict, job_to_dict, pairs_status
 from androsync.executor import run_pair
-from androsync.transport.agent import POLL_SECONDS, AgentBroker, AgentCancelled, AgentTransport
+from androsync.transport.agent import POLL_SECONDS, AgentBroker, AgentBusy, AgentCancelled, AgentTransport
 from androsync.model import Side
 from androsync.transport.local import LocalDirTransport
 from androsync.undo import UndoError, list_runs_all
@@ -90,6 +91,7 @@ _ROUTES: list[tuple[str, re.Pattern, str]] = [
     ("POST", re.compile(r"^/v1/conflicts/(?P<pair>[^/]+)/clean$"), "_h_conflicts_clean"),
     ("GET", re.compile(r"^/v1/runs/(?P<pair>[^/]+)$"), "_h_runs_list"),
     ("POST", re.compile(r"^/v1/undo/(?P<pair>[^/]+)$"), "_h_undo"),
+    ("POST", re.compile(r"^/v1/token/rotate$"), "_h_token_rotate"),
     # The phone app as an agent (task 37b, issue #14); the wire format is in docs/agent-protocol.md.
     ("GET", re.compile(r"^/v1/agent/next$"), "_h_agent_next"),
     ("POST", re.compile(r"^/v1/agent/result/(?P<id>[^/]+)$"), "_h_agent_result"),
@@ -210,6 +212,24 @@ class _Handler(BaseHTTPRequestHandler):
         config = self.api._config_loader()
         return self._send_json(200, pairs_status(config))
 
+    def _h_token_rotate(self, match: re.Match, query: str) -> int:
+        """Make a new token (the caller proved it has the old one) and start accepting only the new one.
+
+        Everything else that uses the old token (other phones, other tools) stops working until it is given the new
+        one, for example by scanning the QR code again. The caller gets the new token in the answer.
+        """
+        config_path = self.api._config_path
+        if config_path is None:
+            return self._send_json(503, {"error": "this daemon was started without a config file, so it cannot save a new token"})
+        new_token = secrets.token_urlsafe(32)
+        try:
+            config_edit.save_raw(config_path, config_edit.set_service_token(config_edit.load_raw(config_path), new_token))
+        except ConfigError as exc:
+            return self._send_json(500, {"error": str(exc)})
+        self.api._token = new_token
+        _LOG.info("a new token was generated through the API")
+        return self._send_json(200, {"token": new_token})
+
     # -- agent mode: the phone app does the file work (task 37b) ------------------------------------------------
 
     def _send_empty(self, status: int) -> int:
@@ -235,7 +255,13 @@ class _Handler(BaseHTTPRequestHandler):
             wait = float((parse_qs(query).get("wait") or [POLL_SECONDS])[0])
         except ValueError:
             return self._send_json(400, {"error": "wait must be a number"})
-        op = self.api.agent.next_op(max(0.0, min(wait, POLL_SECONDS)))
+        agent_id = (parse_qs(query).get("agent") or [None])[0]
+        try:
+            op = self.api.agent.next_op(max(0.0, min(wait, POLL_SECONDS)), agent_id)
+        except AgentBusy:
+            return self._send_json(
+                409, {"error": "another phone's agent is already connected to this laptop; only one at a time"}
+            )
         if op is None:
             return self._send_empty(204)
         return self._send_json(200, op)

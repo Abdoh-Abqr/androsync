@@ -21,6 +21,7 @@ Safer, stoppable syncs; a guided phone setup; and sync without USB debugging.
 - **Several phones and several laptops**: every phone has its own history per pair (so a second phone can never make
   files look deleted), pairs can be bound to a phone, phones can be named (`androsync phone set`), and the app keeps a
   list of laptops, added by scanning each laptop's QR code. See `docs/several-devices.md`.
+- The app can ask the laptop for a **new token** (Settings), and the laptop lets only **one phone's agent** work at a time.
 - Syncthing guide (`docs/syncthing.md`), agent mode guide, install guide (`docs/install.md`), an About dialog and a
   donation link, repo links in the app, signed releases built by CI.
 

@@ -2,12 +2,14 @@ package com.androsync.remote.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.androsync.remote.data.api.ApiClient
 import com.androsync.remote.data.api.ConnectionProbe
 import com.androsync.remote.data.api.ProbeOutcome
 import com.androsync.remote.data.settings.DEFAULT_AUTO_REFRESH_SECONDS
 import com.androsync.remote.data.settings.LaptopProfile
 import com.androsync.remote.data.settings.SettingsRepository
 import com.androsync.remote.ui.setup.TestConnectionState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +28,8 @@ data class SettingsUiState(
     val pollIntervalSeconds: Int = DEFAULT_AUTO_REFRESH_SECONDS,
     val testState: TestConnectionState = TestConnectionState.Idle,
     val setupHintsEnabled: Boolean = true,
+    /** Result line of "Generate a new token" (task 33c follow-up), shown under the button. */
+    val tokenMessage: String? = null,
     val laptops: List<LaptopProfile> = emptyList(),
     val selectedLaptopId: String? = null,
 )
@@ -110,6 +114,42 @@ class SettingsViewModel(
     fun onSetupHintsChange(enabled: Boolean) {
         _uiState.update { it.copy(setupHintsEnabled = enabled) }
         viewModelScope.launch { settingsRepository.setSetupHintsEnabled(enabled) }
+    }
+
+    /**
+     * Asks the laptop for a new token, saves it for the laptop in use and shows the result. Every other phone or tool
+     * that still has the old token is locked out until it scans the QR code again.
+     */
+    fun generateNewToken() {
+        val state = _uiState.value
+        if (state.token.isBlank()) {
+            _uiState.update { it.copy(tokenMessage = "Connect to a laptop first") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(tokenMessage = "Asking the laptop...") }
+            val message = try {
+                val outcome = connectionProbe.probe(
+                    token = state.token,
+                    lanUrl = state.lanUrl.ifBlank { null },
+                    tailscaleUrl = state.tailscaleUrl,
+                )
+                when (outcome) {
+                    is ProbeOutcome.Unreachable -> "The laptop is not reachable: ${outcome.lastError}"
+                    is ProbeOutcome.Reachable -> {
+                        val newToken = ApiClient(outcome.result.baseUrl, state.token).rotateToken()
+                        settingsRepository.setToken(newToken)
+                        _uiState.update { it.copy(token = newToken, testState = TestConnectionState.Idle) }
+                        "New token saved. Other phones must scan the QR code again."
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                "Could not get a new token: ${e.message ?: e.javaClass.simpleName}"
+            }
+            _uiState.update { it.copy(tokenMessage = message) }
+        }
     }
 
     /** Tries every transport (USB, the edited Tailscale URL, the edited LAN URL) and reports the first that answers. */

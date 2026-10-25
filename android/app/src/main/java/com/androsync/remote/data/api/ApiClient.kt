@@ -59,6 +59,9 @@ class ApiClient(val baseUrl: String, val token: String) {
 
     suspend fun browse(side: String, path: String): BrowseDto = unwrap(api.browse(side, path))
 
+    /** Asks the laptop for a new token. The old one stops working at once; the caller must save the returned one. */
+    suspend fun rotateToken(): String = unwrap(api.rotateToken()).token
+
     suspend fun mkdir(side: String, path: String): MkdirResponse = unwrap(api.mkdir(MkdirRequest(side, path)))
 
     suspend fun pending(pair: String): List<PendingEntryDto> = unwrap(api.pending(pair))

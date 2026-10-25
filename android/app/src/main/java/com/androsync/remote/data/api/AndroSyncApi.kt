@@ -40,6 +40,9 @@ interface AndroSyncApi {
     @GET("v1/browse")
     suspend fun browse(@Query("side") side: String, @Query("path") path: String): Response<BrowseDto>
 
+    @POST("v1/token/rotate")
+    suspend fun rotateToken(@Body body: Map<String, String> = emptyMap()): Response<TokenResponse>
+
     @POST("v1/mkdir")
     suspend fun mkdir(@Body request: MkdirRequest): Response<MkdirResponse>
 

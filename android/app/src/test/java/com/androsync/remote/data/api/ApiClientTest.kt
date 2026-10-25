@@ -630,4 +630,13 @@ class ApiClientTest {
         server.enqueue(MockResponse().setBody("""{"name":"androsync","version":"0.1.0","agent":"connected"}"""))
         assertEquals("connected", client.ping().agent)
     }
+
+    @Test
+    fun `rotateToken posts to the rotate endpoint and returns the new token`() = runTest {
+        server.enqueue(MockResponse().setBody("""{"token":"brand-new"}"""))
+        assertEquals("brand-new", client.rotateToken())
+        val request = server.takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals("/v1/token/rotate", request.path)
+    }
 }

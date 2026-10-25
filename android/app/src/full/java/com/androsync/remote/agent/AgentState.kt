@@ -16,6 +16,15 @@ object AgentState {
 
     private const val PREFS = "agent"
     private const val KEY_ENABLED = "enabled"
+    private const val KEY_ID = "agent_id"
+
+    /** A random id for this install, so the laptop can tell two phones' agents apart. Made once, then kept. */
+    fun agentId(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_ID, null) ?: java.util.UUID.randomUUID().toString().take(12).also {
+            prefs.edit().putString(KEY_ID, it).apply()
+        }
+    }
 
     /** Whether the user switched agent mode on; the service restarts itself with the app process while true. */
     fun isEnabled(context: Context): Boolean =

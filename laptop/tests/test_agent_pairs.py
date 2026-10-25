@@ -204,3 +204,44 @@ def test_browsing_the_phone_says_not_connected_with_neither_adb_nor_agent(tmp_pa
         assert status == 503 and "not connected" in body["error"]
     finally:
         env.close()
+
+
+# --- a new token, generated through the API -------------------------------------------------------------------
+
+
+def test_a_new_token_is_saved_and_only_the_new_one_works_afterwards(tmp_path):
+    env = make_env(tmp_path, [("notes", "agent")])
+    try:
+        status, body = env.request("POST", "/v1/token/rotate", {})
+        assert status == 200
+        new = body["token"]
+        assert new and new != "t0ken" and len(new) >= 32
+        assert load_config(env.config_file).service.token == new  # written to the config file
+
+        status, _ = env.request("GET", "/v1/ping")  # the helper still sends the old token
+        assert status == 401
+        import json as _json
+        import urllib.request
+
+        req = urllib.request.Request(env.base + "/v1/ping")
+        req.add_header("Authorization", f"Bearer {new}")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            assert resp.status == 200 and _json.load(resp)["name"] == "androsync"
+    finally:
+        env.close()
+
+
+def test_rotating_the_token_needs_the_current_token(tmp_path):
+    env = make_env(tmp_path, [("notes", "agent")])
+    try:
+        import urllib.error
+        import urllib.request
+
+        req = urllib.request.Request(env.base + "/v1/token/rotate", data=b"{}", method="POST")
+        req.add_header("Authorization", "Bearer wrong")
+        with pytest.raises(urllib.error.HTTPError) as err:
+            urllib.request.urlopen(req, timeout=5)
+        assert err.value.code == 401
+        assert load_config(env.config_file).service.token != "wrong"
+    finally:
+        env.close()

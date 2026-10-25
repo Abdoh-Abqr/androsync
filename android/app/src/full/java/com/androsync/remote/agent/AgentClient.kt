@@ -32,6 +32,8 @@ class AgentClient(
     baseUrl: String,
     private val token: String,
     private val pollWaitSeconds: Int = 25,
+    /** Names this phone's app to the laptop, which lets only one phone's agent work at a time. */
+    private val agentId: String? = null,
 ) : AgentBlobs {
     private val base = baseUrl.trimEnd('/')
     private val json = Json { ignoreUnknownKeys = true }
@@ -48,8 +50,9 @@ class AgentClient(
 
     /** Next operation, or null when the poll timed out with nothing to do. */
     fun next(): AgentOp? {
-        http.newCall(request("/v1/agent/next?wait=$pollWaitSeconds").get().build()).execute().use { response ->
+        http.newCall(request("/v1/agent/next?wait=$pollWaitSeconds" + (agentId?.let { "&agent=$it" } ?: "")).get().build()).execute().use { response ->
             if (response.code == 204) return null
+            if (response.code == 409) throw IOException("another phone's agent is already connected to this laptop")
             if (!response.isSuccessful) throw IOException("laptop answered ${response.code} to /v1/agent/next")
             val body = json.parseToJsonElement(response.body!!.string()).jsonObject
             return AgentOp(

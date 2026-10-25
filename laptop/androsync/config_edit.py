@@ -60,6 +60,15 @@ def set_default_transport(raw: dict[str, Any], transport: str) -> dict[str, Any]
     return new_raw
 
 
+def set_service_token(raw: dict[str, Any], token: str) -> dict[str, Any]:
+    """Return a new raw dict whose ``service.token`` is ``token`` (a new token for the app and the other clients)."""
+    new_raw = dict(raw)
+    service = dict(new_raw.get("service") or {})
+    service["token"] = token
+    new_raw["service"] = service
+    return new_raw
+
+
 def set_phone(raw: dict[str, Any], phone_id: str, *, name: str | None = None, wifi_target: str | None = None) -> dict[str, Any]:
     """Return a new raw dict with ``phones[phone_id]`` created or updated (task 33b). ``None`` leaves a field as it is."""
     new_raw = dict(raw)

@@ -22,7 +22,8 @@ from androsync.transport.local import LocalDirTransport
 
 
 class FakeAgent:
-    def __init__(self, base_url: str, token: str, *, poll_wait: float = 0.3) -> None:
+    def __init__(self, base_url: str, token: str, *, poll_wait: float = 0.3, agent_id: str = "fake-phone") -> None:
+        self.agent_id = agent_id
         self.base_url = base_url
         self.token = token
         self.poll_wait = poll_wait
@@ -61,7 +62,7 @@ class FakeAgent:
                 self._stop.wait(0.05)
                 continue
             try:
-                with self._request("GET", f"/v1/agent/next?wait={self.poll_wait}") as resp:
+                with self._request("GET", f"/v1/agent/next?wait={self.poll_wait}&agent={self.agent_id}") as resp:
                     if resp.status == 204:
                         continue
                     op = json.load(resp)
