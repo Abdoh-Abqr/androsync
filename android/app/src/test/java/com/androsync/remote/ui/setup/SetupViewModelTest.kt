@@ -112,4 +112,18 @@ class SetupViewModelTest {
         vm.onQrScanned("hello")
         assertEquals(true, vm.uiState.value.testState is TestConnectionState.Error)
     }
+
+    @Test
+    fun `loading the saved laptop never overwrites what was already typed`() = runBlocking {
+        val r = repo()
+        r.setToken("saved-token")
+        r.setTailscaleUrl("http://100.64.0.1:8765")
+        val vm = SetupViewModel(r)
+        vm.onTokenChange("typed-token")
+        vm.onTailscaleUrlChange("http://100.64.0.9:8765")
+        withTimeout(5_000) { while (vm.uiState.value.lanUrl.isEmpty() && false) delay(10) }
+        delay(300) // let the saved values arrive
+        assertEquals("typed-token", vm.uiState.value.token)
+        assertEquals("http://100.64.0.9:8765", vm.uiState.value.tailscaleUrl)
+    }
 }

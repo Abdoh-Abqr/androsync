@@ -63,7 +63,14 @@ class SetupViewModel(
                     settingsRepository.baseUrl.first(),
                 )
                 val token = settingsRepository.token.first()
-                _uiState.update { it.copy(tailscaleUrl = tailscale, lanUrl = lan, token = token) }
+                // Fill only what the person has not already typed or scanned while this was loading.
+                _uiState.update {
+                    it.copy(
+                        tailscaleUrl = it.tailscaleUrl.ifEmpty { tailscale },
+                        lanUrl = it.lanUrl.ifEmpty { lan },
+                        token = it.token.ifEmpty { token },
+                    )
+                }
             }
         }
     }

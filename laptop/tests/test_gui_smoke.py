@@ -17,9 +17,9 @@ import pytest
 tk = pytest.importorskip("tkinter")
 
 
-def _make_root():
+def _make_root(**kwargs):
     try:
-        return tk.Tk()
+        return tk.Tk(**kwargs)
     except tk.TclError:
         pytest.skip("no display available to create a Tk root")
 
@@ -295,7 +295,7 @@ def test_support_dialog_builds_and_does_not_shadow_tk_internal_name(tmp_path):
 def test_the_window_gets_the_program_icon_and_the_launcher_class():
     from androsync.gui import app as app_module
 
-    root = tk.Tk(className="androsync")
+    root = _make_root(className="androsync")
     try:
         app_module._set_window_icon(root)
         assert root.winfo_class() == "Androsync"  # what StartupWMClass=androsync in the .desktop file matches
