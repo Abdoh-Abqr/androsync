@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AndroSync</title>
+<meta name="description" content="Keeps folders you choose identical between your devices (currently Linux and Android). Free, open source, no cloud.">
+<link rel="icon" href="img/logo.png">
+<style>
+  :root {
+    --bg: #f7f8fa; --card: #ffffff; --text: #1b1f24; --muted: #57606a; --line: #d8dee4;
+    --accent: #1a5fb4; --accent-text: #ffffff; --code: #eef1f4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161b; --card: #1a2027; --text: #e6e9ed; --muted: #9aa5b1; --line: #2c343d;
+      --accent: #6aa7ff; --accent-text: #0b1118; --code: #232b34;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161b; --card: #1a2027; --text: #e6e9ed; --muted: #9aa5b1; --line: #2c343d;
+    --accent: #6aa7ff; --accent-text: #0b1118; --code: #232b34;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  header { display: flex; align-items: center; gap: 16px; }
+  header img { width: 72px; height: 72px; border-radius: 16px; }
+  h1 { font-size: 2rem; margin: 0; }
+  h2 { font-size: 1.35rem; margin: 40px 0 12px; }
+  p.lead { font-size: 1.1rem; color: var(--muted); margin: 16px 0 24px; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  a.button { display: inline-block; padding: 12px 20px; border-radius: 10px; background: var(--accent); color: var(--accent-text); text-decoration: none; font-weight: 600; }
+  a.button.secondary { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
+  .coffee img { display: block; height: 52px; width: auto; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .card h3 { margin: 0 0 6px; font-size: 1.05rem; }
+  .card p { margin: 0; color: var(--muted); font-size: 0.97rem; }
+  ol { padding-left: 22px; } li { margin: 8px 0; }
+  code, pre { background: var(--code); border-radius: 6px; font: 0.92rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+  code { padding: 1px 5px; }
+  pre { padding: 12px 14px; overflow-x: auto; }
+  footer { margin-top: 48px; color: var(--muted); font-size: 0.92rem; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="img/logo.png" alt="">
+    <h1>AndroSync</h1>
+  </header>
+  <p class="lead">Keeps folders you choose identical between your devices (currently Linux and Android), in either direction, over the USB cable or over the internet via Tailscale. Start a sync from the phone app, the desktop window, or the command line. Nothing is uploaded to any cloud &ndash; the computer and the phone talk to each other directly.</p>
+  <div class="buttons">
+    <a class="button" href="https://github.com/Abdoh-Abqr/androsync/releases/latest">Download</a>
+    <a class="button secondary" href="https://github.com/Abdoh-Abqr/androsync">Source code</a>
+    <a class="coffee" href="https://buymeacoffee.com/abqr"><img src="img/bmc-button.svg" alt="Buy me a coffee"></a>
+  </div>
+
+  <h2>Why AndroSync</h2>
+  <div class="cards">
+    <div class="card"><h3>Preview first</h3><p>See every copy and delete before anything happens. A first sync never deletes.</p></div>
+    <div class="card"><h3>Undo a whole sync</h3><p>Put both sides back the way they were before the last run, from the phone or the computer.</p></div>
+    <div class="card"><h3>Stop any time</h3><p>A live log and a Stop button on the phone, the desktop window and the command line.</p></div>
+    <div class="card"><h3>No duplicate files</h3><p>When both sides changed, the losing version is kept in a hidden folder, not as extra files.</p></div>
+    <div class="card"><h3>USB or Tailscale</h3><p>Over the cable with USB debugging, or without debugging through the app's agent mode.</p></div>
+    <div class="card"><h3>Free and private</h3><p>GPL-3.0-or-later. No ads, no accounts, no tracking. Your files never leave your own devices.</p></div>
+  </div>
+
+  <h2>Install in four steps</h2>
+  <ol>
+    <li>On a Linux computer (laptop, desktop PC or server): <code>sudo apt install pipx adb python3-tk</code>, then <code>pipx ensurepath</code> and open a new terminal.</li>
+    <li>Download the wheel from the <a href="https://github.com/Abdoh-Abqr/androsync/releases/latest">latest release</a> and run <code>pipx install ./androsync-*.whl</code>.</li>
+    <li>Run <code>androsync service install</code>, then <code>androsync service install-launcher</code> and open <b>AndroSync</b> from your app grid.</li>
+    <li>Install the Android app from the same release, run <code>androsync qr</code> on the computer and scan the code with the phone.</li>
+  </ol>
+  <p>Other Linux systems, a server without a screen, and the details: <a href="https://github.com/Abdoh-Abqr/androsync/blob/master/docs/install.md">install guide</a>.</p>
+
+  <footer>
+    Made by Abdoh-Abqr. Free software under the GPL-3.0-or-later.
+    <a href="https://github.com/Abdoh-Abqr/androsync/issues">Report a problem</a>
+  </footer>
+</main>
+</body>
+</html>

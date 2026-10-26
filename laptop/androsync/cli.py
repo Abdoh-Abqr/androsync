@@ -21,7 +21,7 @@ from androsync.runlog import RunLog, tee as _tee_log
 from androsync.cli_conflicts import add_conflicts_commands
 from androsync.cli_pairs import add_pair_commands
 from androsync.cli_phones import add_phone_commands
-from androsync import support
+from androsync import share, support
 from androsync.config import Config, ConfigError, PairConfig, default_config_path, load_config
 from androsync.daemon.watcher import Daemon
 from androsync.executor import ExecutorError, run_pair
@@ -180,6 +180,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     bundle_p.set_defaults(func=cmd_support_bundle)
 
+    share_p = subparsers.add_parser(
+        "share",
+        parents=[common],
+        help="Show a short text and a QR code of the project page to tell a friend (nothing is sent anywhere)",
+    )
+    share_p.add_argument("--no-copy", action="store_true", help="Do not copy the text to the clipboard")
+    share_p.set_defaults(func=cmd_share)
+
     return parser
 
 
@@ -289,6 +297,25 @@ def cmd_support_bundle(args: argparse.Namespace) -> int:
     print(f"Then open a report and attach the file: {support.issue_url_with(__version__)}")
     if support.SUPPORT_EMAIL:
         print(f"Or email it to {support.SUPPORT_EMAIL}.")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# share
+# ---------------------------------------------------------------------------
+
+
+def cmd_share(args: argparse.Namespace) -> int:
+    print(share.SHARE_TEXT)
+    print()
+    lines = share.qr_lines(share.REPO_URL)
+    if lines is None:
+        print("(install `pip install 'androsync[qr]'` to also show a scannable QR code)")
+    else:
+        print("\n".join(lines))
+    if not args.no_copy:
+        tool = share.copy_to_clipboard(share.SHARE_TEXT)
+        print(f"\nThe text is copied to your clipboard ({tool})." if tool else "\n(No clipboard tool found: copy the text above.)")
     return 0
 
 

@@ -18,6 +18,7 @@ from typing import Callable
 from androsync.browse import BrowseError, BrowseResult
 from androsync import service, support
 from androsync.config import DIRECTIONS, CONFLICT_POLICIES, TRANSPORT_MODES, PairConfig
+from androsync import share
 from androsync.gui.logic import ANY_PHONE, ANY_PHONE_LABEL, direction_label
 from androsync.phone_path import PhonePathError, check_remote, normalize_remote, validate_remote
 
@@ -454,6 +455,46 @@ class AboutDialog(tk.Toplevel):
         repo.grid(row=4, column=0, padx=16, pady=(8, 0))
         repo.bind("<Button-1>", lambda _event: webbrowser.open(REPO_URL))
         ttk.Button(self, text="Close", command=self.destroy).grid(row=5, column=0, pady=16)
+
+
+class ShareDialog(tk.Toplevel):
+    """Help, "Share AndroSync": the short text, a QR code of the project page and a Copy button (Phase V5)."""
+
+    _CELL = 5
+
+    def __init__(self, master: tk.Widget) -> None:
+        super().__init__(master)
+        self.title("Share AndroSync")
+        self.transient(master)
+        self.resizable(False, False)
+        ttk.Label(self, text=share.SHARE_TEXT, wraplength=360, justify="left").grid(
+            row=0, column=0, padx=16, pady=(16, 8)
+        )
+        matrix = share.qr_matrix(share.REPO_URL)
+        if matrix is None:
+            ttk.Label(self, text="Install `androsync[qr]` to show a QR code here.").grid(row=1, column=0, padx=16)
+        else:
+            size = len(matrix) * self._CELL
+            canvas = tk.Canvas(self, width=size, height=size, background="white", highlightthickness=0)
+            canvas.grid(row=1, column=0, padx=16, pady=4)
+            for y, row in enumerate(matrix):
+                for x, dark in enumerate(row):
+                    if dark:
+                        canvas.create_rectangle(
+                            x * self._CELL, y * self._CELL, (x + 1) * self._CELL, (y + 1) * self._CELL,
+                            fill="black", outline="",
+                        )
+        self._status = ttk.Label(self, text="")
+        self._status.grid(row=2, column=0, pady=(4, 0))
+        buttons = ttk.Frame(self)
+        buttons.grid(row=3, column=0, pady=12)
+        ttk.Button(buttons, text="Copy the text", command=self._copy).pack(side="left", padx=4)
+        ttk.Button(buttons, text="Close", command=self.destroy).pack(side="left", padx=4)
+
+    def _copy(self) -> None:
+        self.clipboard_clear()
+        self.clipboard_append(share.SHARE_TEXT)
+        self._status.configure(text="Copied.")
 
 
 class SupportDialog(tk.Toplevel):

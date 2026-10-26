@@ -37,6 +37,7 @@ import com.androsync.remote.ui.common.AndroSyncTopBar
 import com.androsync.remote.ui.common.ConnectionState
 import com.androsync.remote.ui.common.ProjectLinks
 import com.androsync.remote.ui.common.openUrl
+import com.androsync.remote.ui.common.shareApp
 import com.androsync.remote.ui.rememberSettingsViewModel
 import com.androsync.remote.ui.setup.TestConnectionState
 
@@ -174,9 +175,9 @@ fun SettingsScreen(
 
             HorizontalDivider()
 
-            AboutSection(connectionState, onOpenSupport)
-
             SupportSection()
+
+            AboutSection(connectionState, onOpenSupport)
         }
     }
 
@@ -268,15 +269,18 @@ private fun AboutSection(connectionState: ConnectionState, onOpenSupport: () -> 
 
     Text("About", style = MaterialTheme.typography.titleMedium)
     Text("AndroSync Remote $appVersion")
-    Text(if (laptopVersion != null) "Laptop: androsync $laptopVersion" else "Laptop version: not connected")
+    Text(if (laptopVersion != null) "Computer: androsync $laptopVersion" else "Computer version: not connected")
     Text("Free software, GPL-3.0-or-later. Made by Abdoh-Abqr.", style = MaterialTheme.typography.bodySmall)
     OutlinedButton(onClick = onOpenSupport, modifier = Modifier.fillMaxWidth()) {
         Text("Help and support (report a problem)")
     }
+    OutlinedButton(onClick = { shareApp(context) }, modifier = Modifier.fillMaxWidth()) {
+        Text("Tell a friend")
+    }
     OutlinedButton(onClick = { openUrl(context, ProjectLinks.REPO) }, modifier = Modifier.fillMaxWidth()) {
-        Text("Source code and guides (GitHub)")
+        Text("Source code and guides - star it on GitHub")
     }
     OutlinedButton(onClick = { openUrl(context, ProjectLinks.INSTALL_GUIDE) }, modifier = Modifier.fillMaxWidth()) {
-        Text("How to install the laptop program")
+        Text("How to install the program on your Linux computer")
     }
 }

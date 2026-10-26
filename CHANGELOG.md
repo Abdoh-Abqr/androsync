@@ -9,6 +9,15 @@ All notable changes to androsync are recorded here. Format loosely follows
 - Names in the direction: pairs read "Ubuntu ↔ S24 FE" (or "Ubuntu ↔ any phone") in the app and the window. The computer's name is `service.name` (default: host name); phones show the name you gave them, else their model.
 - The pair editor always shows the Phone row with "Any phone"; the window's pair editor has a Phone choice too.
 - `PUT /v1/laptop` and `PUT /v1/phones/<id>` rename the computer and a phone.
+- **Share and promote**: a **Tell a friend** button in the app, `androsync share` and Help > Share AndroSync in the window (a text and a QR code, nothing is sent), a one-page site in `docs/index.html`, and `scripts/release_notes.py` for release announcements.
+- **Automatic sync**: a pair can sync by itself a few seconds after files change (`auto: true`). It never runs the first
+  sync, never confirms a big change, pauses after three failures, and leaves no trace when nothing changed. See
+  `docs/auto-sync.md`.
+- **Run conditions** for automatic syncs (Wi-Fi only, charging only, a time window), a **speed limit** for agent file transfers
+  (`service: bandwidth_kb_s`), and **Pause on mobile data** in the agent.
+- **Report a problem**: `androsync support-bundle`, a window dialog and an app screen make a redacted log file; a GitHub
+  issue form and `docs/support.md`.
+- `androsync service new-token` and a New token button in the window; the config file is now readable by you only.
 
 ### Improved
 - A pair that works over USB or Wi-Fi debugging only now says so first when the phone is connected another way ("This pair works over USB or Wi-Fi debugging only, but the phone is connected over Tailscale right now."), then gives the usual hint. The app also names the connection when it cannot see a phone over adb.
@@ -19,18 +28,6 @@ All notable changes to androsync are recorded here. Format loosely follows
 
 ### Fixed
 - Agent mode: the battery button is always visible, Android's battery prompt appears when the agent is switched on, and the agent starts again after an app update or when the app opens.
-
-### Added
-- **Automatic sync**: a pair can sync by itself a few seconds after files change (`auto: true`). It never runs the first
-  sync, never confirms a big change, pauses after three failures, and leaves no trace when nothing changed. See
-  `docs/auto-sync.md`.
-- **Run conditions** for automatic syncs (Wi-Fi only, charging only, a time window), a **speed limit** for agent file transfers
-  (`service: bandwidth_kb_s`), and **Pause on mobile data** in the agent.
-- **Report a problem**: `androsync support-bundle`, a window dialog and an app screen make a redacted log file; a GitHub
-  issue form and `docs/support.md`.
-- `androsync service new-token` and a New token button in the window; the config file is now readable by you only.
-
-### Fixed
 - A rare race where a failed job showed as finished before each pair's failure was saved.
 - The desktop icon did not show: the launcher installer now refreshes the system icon cache, installs PNG sizes, and ties
   the window to the launcher (`StartupWMClass`); the window has its own icon.

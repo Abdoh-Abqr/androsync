@@ -330,3 +330,16 @@ def test_the_window_gets_the_program_icon_and_the_launcher_class():
         assert getattr(root, "_androsync_icon", None) is not None
     finally:
         root.destroy()
+
+
+def test_share_dialog_builds_and_destroys():
+    from androsync.gui.dialogs import ShareDialog
+
+    root = _make_root()
+    try:
+        dialog = ShareDialog(root)
+        assert isinstance(dialog._name, str)
+        dialog._copy()
+        dialog.destroy()
+    finally:
+        root.destroy()

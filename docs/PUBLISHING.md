@@ -24,3 +24,12 @@ and there is no iOS build.
 2. Use a project email alias for the developer contact, never a work address.
 3. Check the privacy policy text ("nothing leaves your devices") and the data-safety answers in `docs/`.
 4. Keep `scripts/check_no_personal_data.sh` clean; use the project name in all store texts.
+
+## Announcing a release
+
+- `python3 scripts/release_notes.py <version>` turns the CHANGELOG entry into a short post (forums, Mastodon, Reddit) and
+  the F-Droid changelog text; `--write` saves it as `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
+- The landing page is `docs/index.html`. Turn it on once in the repository settings: Pages, deploy from the `master`
+  branch, folder `/docs`.
+- The social preview image comes from `python3 branding/make_social.py`; upload `branding/social-preview.png` in the
+  repository settings under "Social preview".

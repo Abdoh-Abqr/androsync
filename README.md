@@ -9,6 +9,7 @@ Keeps folders you choose identical between your devices (currently Linux and And
 [![Buy me a coffee](branding/bmc-button.svg)](https://buymeacoffee.com/abqr)
 
 AndroSync is free and open source. If it saves you time, a coffee helps keep it going.
+Tell a friend: the app's Settings has a **Tell a friend** button, and `androsync share` prints the same text with a QR code.
 
 ## Part 1 - For users (start here)
 
