@@ -3,6 +3,7 @@ package com.androsync.remote
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import com.androsync.remote.agent.AgentAutoStart
 import com.androsync.remote.service.SyncForegroundService
 import com.androsync.remote.ui.setup.SetupHintNotifier
 import com.androsync.remote.ui.setup.UsbStateReceiver
@@ -18,6 +19,7 @@ class AndroSyncApplication : Application() {
         createNotificationChannel()
         SetupHintNotifier.createChannel(this)
         UsbStateReceiver.register(this, container.settingsRepository)
+        AgentAutoStart.ensureRunning(this)
     }
 
     /**

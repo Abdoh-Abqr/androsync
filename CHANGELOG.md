@@ -5,6 +5,9 @@ All notable changes to androsync are recorded here. Format loosely follows
 
 ## [Unreleased]
 
+### Fixed
+- Agent mode: the battery button is always visible, Android's battery prompt appears when the agent is switched on, and the agent starts again after an app update or when the app opens.
+
 ### Added
 - **Automatic sync**: a pair can sync by itself a few seconds after files change (`auto: true`). It never runs the first
   sync, never confirms a big change, pauses after three failures, and leaves no trace when nothing changed. See

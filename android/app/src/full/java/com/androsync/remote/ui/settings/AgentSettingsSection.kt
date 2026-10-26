@@ -72,7 +72,12 @@ fun AgentSettingsSection(connectionState: ConnectionState) {
                 enabled = allFiles,
                 onCheckedChange = { on ->
                     enabled = on
-                    if (on) AgentService.start(context) else AgentService.stop(context)
+                    if (on) {
+                        AgentService.start(context)
+                        if (!isIgnoringBatteryOptimizations(context)) requestBatteryExemption(context)
+                    } else {
+                        AgentService.stop(context)
+                    }
                 },
             )
         }
@@ -112,21 +117,25 @@ fun AgentSettingsSection(connectionState: ConnectionState) {
                 if (laptopSees) "The laptop sees the agent." else "The laptop does not see the agent yet.",
                 style = MaterialTheme.typography.bodySmall,
             )
-            if (unrestricted) {
-                Text("Battery: unrestricted (good)", style = MaterialTheme.typography.bodySmall)
-            } else {
-                Text(
-                    "Battery: Android may stop the agent after a while. Allow it to run without restrictions.",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                OutlinedButton(
-                    onClick = { requestBatteryExemption(context) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Allow unrestricted battery use") }
-            }
-            Text(vendorBatteryAdvice(Build.MANUFACTURER), style = MaterialTheme.typography.bodySmall)
         }
+        if (unrestricted) {
+            Text("Battery: unrestricted (good)", style = MaterialTheme.typography.bodySmall)
+        } else {
+            Text(
+                "Battery: Android may stop the agent after a while. Allow it to run without restrictions.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            OutlinedButton(
+                onClick = { requestBatteryExemption(context) },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Allow unrestricted battery use") }
+        }
+        OutlinedButton(
+            onClick = { openAppDetails(context) },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Open this app's settings (battery)") }
+        Text(vendorBatteryAdvice(Build.MANUFACTURER), style = MaterialTheme.typography.bodySmall)
         HorizontalDivider()
     }
 }
@@ -142,6 +151,17 @@ private fun requestBatteryExemption(context: Context) {
         context.startActivity(request)
     } catch (_: ActivityNotFoundException) {
         context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+}
+
+/** The app's own page in Android settings, where the phone maker keeps its extra battery switches. */
+private fun openAppDetails(context: Context) {
+    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    try {
+        context.startActivity(intent)
+    } catch (_: ActivityNotFoundException) {
+        context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 }
 
