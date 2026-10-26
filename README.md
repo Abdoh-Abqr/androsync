@@ -1,17 +1,21 @@
 # androsync
 
 [![CI](https://github.com/Abdoh-Abqr/androsync/actions/workflows/ci.yml/badge.svg)](https://github.com/Abdoh-Abqr/androsync/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Abdoh-Abqr/androsync)](https://github.com/Abdoh-Abqr/androsync/releases)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
 
-Keeps folders you choose identical between your Ubuntu laptop and your Android phone, in either
-direction, over the USB cable or over the internet via Tailscale. Start a sync from the phone app,
-the desktop window, or the command line. Nothing is uploaded to any cloud - the laptop and the
-phone talk to each other directly.
+Keeps folders you choose identical between your devices (currently Linux and Android), in either direction, over the USB cable or over the internet via Tailscale. Start a sync from the phone app, the desktop window, or the command line. Nothing is uploaded to any cloud - the laptop and the phone talk to each other directly.
+
+[![Buy me a coffee](branding/bmc-button.svg)](https://buymeacoffee.com/abqr)
+
+AndroSync is free and open source. If it saves you time, a coffee helps keep it going.
 
 ## Part 1 - For users (start here)
 
 ### What you need
 
-- An Ubuntu laptop.
+- A Linux computer: a laptop, a desktop PC or a server. Ubuntu 22.04 or newer, Debian 12 or newer, Fedora or
+  Arch all work; any Linux with systemd, Python 3.10 or newer and `adb` will do. macOS and Windows are not supported yet.
 - An Android phone, Android 11 or newer, with a USB cable.
 - About 15 minutes.
 - Optional: [Tailscale](https://tailscale.com) installed on both, if you want to sync while away
@@ -29,39 +33,32 @@ The first time you plug the laptop in, the phone asks "Allow USB debugging?" - t
 allow from this computer"** and accept. After that, plugging the cable in is enough; you will not
 see that prompt again for this laptop.
 
-> **Cannot or do not want to use USB debugging?** Two options:
->
-> | | Syncthing | Agent mode |
-> |---|---|---|
-> | Cable and debugging | none | none |
-> | Preview, undo, Stop button | no | **yes** |
-> | Runs all day on its own | **yes** | only while the agent is switched on |
-> | Laptop must be on | no | yes |
-> | App | F-Droid | the `full` app (GitHub, F-Droid; not Google Play) |
->
-> Agent mode needs the "All files access" permission, which Google Play restricts, and Tailscale on both devices.
-> Guides: [docs/agent-mode.md](docs/agent-mode.md) and [docs/syncthing.md](docs/syncthing.md).
-> Never let two tools manage the same folder.
+> **Cannot or do not want to use USB debugging?** Use [agent mode](docs/agent-mode.md): the app itself does the file work
+> over Tailscale, so no cable and no debugging are needed, and you keep preview, undo and the Stop button. It needs the
+> `full` app (GitHub, F-Droid; not Google Play) and the "All files access" permission.
 
-### Install on the laptop
+### Install on the Linux computer
 
-Full guide, with the status for Linux, macOS and Windows: **[docs/install.md](docs/install.md)**. Short version for
-Ubuntu (macOS and Windows are not supported yet): download the newest wheel from the
-[Releases page](https://github.com/Abdoh-Abqr/androsync/releases) and install it with `pipx install ./androsync-*.whl`,
-or, from a clone of this repository, open a terminal in it and run:
+The computer can be a laptop, a desktop PC or a server. Full guide: **[docs/install.md](docs/install.md)**. Steps:
 
-```sh
-pipx install ./laptop
-androsync service install
-androsync service install-launcher
-```
+1. Install the packages, then run `pipx ensurepath` and open a new terminal:
+   - Ubuntu or Debian: `sudo apt install pipx adb python3-tk`
+   - Fedora: `sudo dnf install pipx android-tools python3-tkinter`
+   - Arch: `sudo pacman -S python-pipx android-tools tk`
 
-Then open your app grid, launch **"AndroSync"**, and press **"Run here"** in the window that
-opens. The status line should change to "Running here (this window)".
+   (`python3-tk` is only for the desktop window; a server does not need it.)
+2. Install AndroSync: download the newest wheel from the
+   [Releases page](https://github.com/Abdoh-Abqr/androsync/releases) and run `pipx install ./androsync-*.whl`.
+   From a clone of this repository, run `pipx install ./laptop` instead.
+3. Create the settings, a token and the background service file: `androsync service install`.
+4. **Computer with a screen:** run `androsync service install-launcher`, open **"AndroSync"** from your app grid and press
+   **"Run here"**. The status line should change to "Running here (this window)".
+5. **Server or any computer without a screen:** there is no window. Run `androsync service install --autostart`
+   instead, then `androsync qr` and scan the code with the phone. A server cannot use the phone's cable unless the phone
+   is plugged into that server, so use [agent mode](docs/agent-mode.md) over Tailscale, or plug the phone in.
+6. Check: `androsync service status` says the service is running, and `androsync --version` prints the version.
 
-(`pipx` keeps androsync in its own isolated environment and puts a stable `androsync` command on
-your `PATH`; if you do not have it yet, `sudo apt install pipx` then `pipx ensurepath` and open a
-new terminal.)
+(`pipx` keeps AndroSync in its own isolated environment and puts a stable `androsync` command on your `PATH`.)
 
 ### Install on the phone
 
@@ -84,7 +81,7 @@ adb install -r androsync-remote-<version>-full.apk
 or copy the file to the phone and open it there. Then:
 
 1. Open the AndroSync Remote app.
-2. On the laptop, run `androsync qr` - it prints the connection token and a scannable QR code.
+2. On the Linux computer, run `androsync qr` - it prints the connection token and a scannable QR code.
 3. In the app's Setup screen, scan it (or type the token and URL by hand).
 4. The connection badge at the top of the app should turn **"USB"**.
 
@@ -136,7 +133,7 @@ Three common errors:
 
 - The first sync of any pair only ever copies, never deletes - see above.
 - Several phones and several laptops work: each phone keeps its own history per pair, a pair can be bound to one phone, and the app holds a list of laptops (see [docs/several-devices.md](docs/several-devices.md)). One sync runs at a time on a laptop.
-- Linux (Ubuntu) only, for the laptop side. macOS and Windows are planned ([issue 8](https://github.com/Abdoh-Abqr/androsync/issues/8), [install guide](docs/install.md)).
+- Linux only, for the computer side. macOS and Windows are planned ([issue 8](https://github.com/Abdoh-Abqr/androsync/issues/8), [install guide](docs/install.md)).
 - There will never be an iPhone version: iOS has no ADB and no way for a PC to read or write its
   files directly, which this design depends on.
 
@@ -182,12 +179,12 @@ One line each, with the full detail:
 ### Project docs and history
 
 - **[`PLAN.md`](PLAN.md)** - architecture, the config format, the full HTTP API.
-- **[`docs/install.md`](docs/install.md)** - installing the laptop program, with the status for Linux, macOS and Windows.
+- **[`docs/install.md`](docs/install.md)** - installing AndroSync on a Linux computer, with the status for macOS and Windows.
 - **[`docs/auto-sync.md`](docs/auto-sync.md)** - sync by itself when files change: how to turn it on, what it never does.
 - **[`docs/support.md`](docs/support.md)** - something wrong? how to make a log file (nothing private in it) and report it.
 - **[`docs/token.md`](docs/token.md)** - what the token is, where it is stored, how to make a new one.
-- **[`docs/agent-mode.md`](docs/agent-mode.md)** - sync without USB debugging through the app itself: comparison with ADB and Syncthing, the permission, why it is not on Google Play, setup.
-- **[`docs/syncthing.md`](docs/syncthing.md)** - the no-debugging alternative with Syncthing, for photos, a notes vault and an inbox.
+- **[`docs/agent-mode.md`](docs/agent-mode.md)** - sync without USB debugging through the app itself: the permission, why it is not on Google Play, setup.
+- **[`docs/syncthing.md`](docs/syncthing.md)** - a how-to for keeping photos, a notes vault and an inbox in sync with Syncthing instead.
 - **[`NEXT_TASKS.md`](NEXT_TASKS.md)** - what was built, when, and why; read this first if you are
   picking up a task here (an AI coding agent or a human).
 

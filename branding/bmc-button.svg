@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="64" viewBox="0 0 300 64" role="img" aria-label="Buy me a coffee">
+  <title>Buy me a coffee</title>
+  <rect x="2" y="2" width="296" height="60" rx="14" fill="#FFDD00" stroke="#000000" stroke-width="3"/>
+  <!-- cup -->
+  <g transform="translate(26 14)" fill="#FFFFFF" stroke="#000000" stroke-width="2.5" stroke-linejoin="round">
+    <path d="M4 8h26l-3 24a4 4 0 0 1-4 3.5H11A4 4 0 0 1 7 32z"/>
+    <path d="M30 12h3a5 5 0 0 1 0 10h-4" fill="none"/>
+    <path d="M10 2c0 3 3 3 3 6M18 2c0 3 3 3 3 6" fill="none"/>
+    <path d="M8.5 16h19l-1.6 14a2.5 2.5 0 0 1-2.5 2H12.6a2.5 2.5 0 0 1-2.5-2z" fill="#6F4E37" stroke="none"/>
+  </g>
+  <text x="76" y="40" font-family="'Cookie','Segoe Script','Brush Script MT',cursive,sans-serif" font-size="26" font-weight="700" fill="#000000">Buy me a coffee</text>
+</svg>

@@ -8,22 +8,21 @@ laptop's window, and the pair came back in sync. Not tried yet: Wi-Fi without Ta
 
 ## Which way should I sync?
 
-| | Syncthing | ADB (USB or Wi-Fi debugging) | Agent mode |
-|---|---|---|---|
-| USB or Wireless debugging | not needed | needed | **not needed** |
-| Cable | no | USB, or Wi-Fi debugging | **no** |
-| Runs by itself all day | **yes** | only while plugged in or reachable | only while the agent is switched on |
-| Preview before a sync | no | yes | **yes** |
-| Undo a whole sync | no | yes | **yes** |
-| Stop button and live log | no | yes | **yes** |
-| Conflict loser kept in a hidden folder | no (extra files) | yes | **yes** |
-| Needs the laptop to be on | no | yes | yes |
-| Needs "All files access" on the phone | yes | no | yes |
-| Where to get the app | F-Droid | F-Droid, GitHub, Google Play | F-Droid, GitHub (not Google Play) |
+| | ADB (USB or Wi-Fi debugging) | Agent mode |
+|---|---|---|
+| USB or Wireless debugging | needed | **not needed** |
+| Cable | USB, or Wi-Fi debugging | **no** |
+| Preview before a sync | yes | yes |
+| Undo a whole sync | yes | yes |
+| Stop button and live log | yes | yes |
+| Conflict loser kept in a hidden folder | yes | yes |
+| Needs the computer to be on | yes | yes |
+| Needs "All files access" on the phone | no | yes |
+| Where to get the app | F-Droid, GitHub, Google Play | F-Droid, GitHub (not Google Play) |
 
 Pick **ADB** when a cable is fine: it is the most tested path and needs no extra permission. Pick **agent mode** when
-you do not want debugging switched on but still want preview, undo and a Stop button. Pick **Syncthing** when you want
-folders kept in sync all day with the laptop off. See [syncthing.md](syncthing.md).
+you do not want debugging switched on but still want preview, undo and a Stop button. If you want folders kept in sync
+all day with the computer off, see the separate [Syncthing guide](syncthing.md).
 
 You can mix them: each pair chooses `adb` or `agent`. A job that only has agent pairs needs no phone attached.
 
@@ -40,8 +39,7 @@ from different stores, so switching means uninstalling first (the app only keeps
 Agent mode needs two things Google Play restricts:
 
 1. **All files access** (`MANAGE_EXTERNAL_STORAGE`). Android gives an app this to read and write any folder, which a
-   sync tool must do. Google Play allows it only for a short list of core purposes and reviews each app. Syncthing's own
-   Android app was removed from Play for the same reason.
+   sync tool must do. Google Play allows it only for a short list of core purposes and reviews each app.
 2. A foreground service of the **`specialUse`** type, chosen so Android does not stop the agent after six hours (the
    `dataSync` type is limited to six hours a day on Android 15).
 

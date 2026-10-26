@@ -1,24 +1,12 @@
-# Syncing with Syncthing instead (no USB debugging)
+# Keeping folders in sync with Syncthing (no USB debugging)
 
-androsync needs USB debugging or Wireless debugging on the phone. If you cannot or do not want to switch that on,
-**Syncthing** is a free, open-source way to keep some folders identical between the laptop and the phone with no
-cable and no debugging. This guide sets it up for the three common cases: photos, a notes vault, and an inbox.
+androsync needs USB debugging or Wireless debugging on the phone, or its own agent mode. If you cannot or do not want
+to use either, **Syncthing** is a free, open-source way to keep some folders identical between your Linux computer and
+the phone with no cable and no debugging. This guide sets it up for the three common cases: photos, a notes vault, and
+an inbox.
 
-Syncthing is a separate program from androsync. androsync does not control it.
-
-## Which one should I use?
-
-| You want | Use |
-|---|---|
-| Folders kept in sync all day, by themselves, no cable | **Syncthing** |
-| To **preview** a sync before it happens | androsync |
-| To **undo** a whole sync | androsync |
-| A **Stop** button and a live log you can watch | androsync |
-| A conflict kept in a hidden folder, not as extra files | androsync |
-| No debugging switch on the phone | **Syncthing** |
-
-You can use both on **different folders**. Never let both manage the **same** folder: they would fight over
-the same files.
+Syncthing is a separate program from androsync. androsync does not control it. Use both on **different folders**:
+never let two tools manage the **same** folder, they would fight over the same files.
 
 ## What you need
 
@@ -138,43 +126,6 @@ If you also want local discovery on your home Wi-Fi, it uses UDP port 21027 on t
 | "Out of Sync" on a Receive Only folder | Someone edited files there. Use **Revert Local Changes** if you want the sender's version. |
 | Photos you deleted are still in the laptop folder | Check `.stversions` inside the folder: that is the Trash Can copy. |
 | Extra files named `sync-conflict` | Section 6. |
-
-## How androsync and Syncthing compare
-
-Syncthing is a mature, continuous, any-device-to-any-device tool. androsync is a laptop-centred tool you control: you
-preview, start, stop and undo. They solve different problems; this is where each is stronger.
-
-**Syncthing does better**
-
-| Area | Syncthing | androsync today |
-|---|---|---|
-| Automatic sync | Watches folders and syncs within seconds, all day | On demand only (automatic sync is planned, see below) |
-| Any device to any device | A mesh: phone to phone, laptop to server, no hub | The laptop is always one side |
-| Large files | Sends only the changed blocks | Sends the whole file |
-| Reaching devices | Discovery, relays, NAT traversal built in | Tailscale or the same network |
-| Platforms | Linux, macOS, Windows, BSD, Android (iOS through a third-party app) | Linux laptop, Android phone |
-| Phone battery rules | Run only on Wi-Fi, only while charging, schedules | Planned (agent mode) |
-| Bandwidth | Rate limits and schedules | Planned (agent mode) |
-| Versioning | Trash can, simple, staggered, external command | Git on the laptop side only |
-| Untrusted devices | Encrypted folders that a device stores but cannot read | No |
-| Maturity | Years of use, a large community | New |
-
-**androsync does better**
-
-| Area | androsync | Syncthing |
-|---|---|---|
-| Preview | See every copy and delete before anything happens | No |
-| Undo | Put both sides back to how they were before a sync | No (only versioning) |
-| Stop and live log | A Stop button and a live log with both paths | No |
-| Conflicts | The losing version is kept in a hidden folder | Extra `sync-conflict` files everywhere |
-| Safety | First sync never deletes, big deletes wait for your OK, bad phone folders are refused | You must set this up yourself |
-| Control | Start and watch syncs from the phone app or the laptop window | Settings in a web page |
-| Nothing on the phone | With USB or Wi-Fi debugging the phone needs no sync app | Needs the Syncthing app |
-| Timestamps and hashes | Compares content before calling a conflict; keeps each side's times | Block hashes (also exact) |
-
-**What androsync plans to add** (public issues track these): automatic sync with a file watcher, run conditions (Wi-Fi
-only, charging, a time window) and a bandwidth limit for agent mode, trash-can versioning on the phone, partial-file
-transfer for big files, and later direct phone-to-phone sync. See [the roadmap in the repository](https://github.com/Abdoh-Abqr/androsync/issues).
 
 ## Back to androsync
 
