@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "androsync"
 version = "0.2.0"
 description = "USB/Wi-Fi folder sync between an Ubuntu laptop and an Android phone"
+authors = [{ name = "Abdoh-Abqr" }]
 readme = "README.md"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.10"

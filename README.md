@@ -199,7 +199,7 @@ cd android && ./gradlew :app:testDebugUnitTest
 
 ## License
 
-[GPL-3.0-or-later](LICENSE). Free software: you may use, study, change and share it, and anything you
-distribute based on it must stay under the same license.
+Copyright (C) 2026 Abdoh-Abqr. [GPL-3.0-or-later](LICENSE). Free software: you may use, study, change and share it,
+and anything you distribute based on it must stay under the same license.
 
 If androsync is useful to you, you can [buy the developer a coffee](https://buymeacoffee.com/abqr). It is optional.
