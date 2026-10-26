@@ -17,6 +17,8 @@ All notable changes to androsync are recorded here. Format loosely follows
 
 ### Fixed
 - A rare race where a failed job showed as finished before each pair's failure was saved.
+- The desktop icon did not show: the launcher installer now refreshes the system icon cache, installs PNG sizes, and ties
+  the window to the launcher (`StartupWMClass`); the window has its own icon.
 
 ## [0.2.0] - 2026-10-25
 
