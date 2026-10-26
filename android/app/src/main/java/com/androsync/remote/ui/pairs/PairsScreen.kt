@@ -76,6 +76,7 @@ import com.androsync.remote.ui.common.AndroSyncTopBar
 import com.androsync.remote.ui.common.ConnectionState
 import com.androsync.remote.ui.setup.DeviceReadiness
 import com.androsync.remote.ui.setup.deviceReadiness
+import com.androsync.remote.ui.setup.phoneProblemLead
 import com.androsync.remote.ui.common.SyncError
 import com.androsync.remote.ui.common.directionArrowText
 import com.androsync.remote.ui.common.formatLastResult
@@ -221,6 +222,15 @@ fun PairsScreen(
             val phoneProblem = (connectionState as? ConnectionState.Connected)?.let {
                 deviceReadiness(true, it.devices) != DeviceReadiness.READY
             } ?: false
+            val lead = (connectionState as? ConnectionState.Connected)?.let { phoneProblemLead(it.via, it.agentConnected) }
+            if (phoneProblem && lead != null) {
+                Text(
+                    text = lead,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             if (phoneProblem || !syncEnabled) {
                 TextButton(onClick = onNavigateToConnect, modifier = Modifier.padding(horizontal = 4.dp)) {
                     Text(if (phoneProblem) "Phone not detected \u2014 fix it" else "Help me connect my phone")
@@ -422,7 +432,7 @@ private fun PairCard(
                     text = result.text,
                     style = MaterialTheme.typography.bodySmall,
                     color = if (result.isFailure) MaterialTheme.colorScheme.error else Color.Unspecified,
-                    maxLines = 1,
+                    maxLines = if (result.isFailure) 4 else 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

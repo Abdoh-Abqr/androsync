@@ -1,5 +1,6 @@
 package com.androsync.remote.ui.jobs
 
+import com.androsync.remote.ui.common.errorHeadline
 import com.androsync.remote.data.api.JobDto
 import com.androsync.remote.ui.common.formatElapsed
 
@@ -44,6 +45,6 @@ fun jobRowSummary(job: JobDto): String {
     val started = job.started
     val finished = job.finished
     if (started != null && finished != null) parts += formatElapsed((finished - started).toLong())
-    job.error?.let { parts += it.take(80) }
+    job.error?.let { parts += errorHeadline(it).take(80) }
     return parts.joinToString(" · ")
 }

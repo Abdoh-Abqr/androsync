@@ -1,6 +1,7 @@
 package com.androsync.remote.ui.setup
 
 import com.androsync.remote.data.api.DeviceStateDto
+import com.androsync.remote.data.settings.Preset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -20,6 +21,16 @@ class SetupChecklistTest {
     ) = computeChecklist(devOptions, adb, readiness, isFull, allFiles)
 
     private fun byId(list: List<ChecklistStep>, id: StepId) = list.first { it.id == id }
+
+    // --- the lead sentence when only the phone app is connected --------------------------
+
+    @Test
+    fun `lead names tailscale and the local network, nothing for a cable or no app`() {
+        assertTrue(phoneProblemLead(Preset.TAILSCALE, true)!!.startsWith("You are connected over Tailscale."))
+        assertTrue(phoneProblemLead(Preset.LAN, true)!!.startsWith("You are connected over the local network."))
+        assertNull(phoneProblemLead(Preset.USB, true))
+        assertNull(phoneProblemLead(Preset.TAILSCALE, false))
+    }
 
     // --- readiness from the ping ------------------------------------------------------
 

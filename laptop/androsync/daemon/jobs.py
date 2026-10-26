@@ -25,6 +25,7 @@ from uuid import uuid4
 
 from androsync import state
 from androsync.config import Config, PairConfig
+from androsync.daemon.problems import explain_failure
 from androsync.executor import run_pair
 from androsync.model import Side, Summary
 from androsync.runlog import RunLog
@@ -388,6 +389,19 @@ class JobRunner:
             adb_errors=adb_errors,
         )
 
+    def _explain(self, pair_transport: str, exc: Exception) -> Exception:
+        """``exc``, or a copy whose text starts with the wrong-connection sentence (Phase V3, see ``problems``)."""
+        broker = self._agent_broker
+        if broker is None:
+            return exc
+        text = explain_failure(
+            str(exc),
+            pair_transport=pair_transport,
+            agent_connected=broker.connected(),
+            agent_route=broker.route(),
+        )
+        return exc if text == str(exc) else TransportError(text)
+
     def add_listener(self, listener: Callable[[Job], None]) -> None:
         """Call ``listener(job)`` whenever a job has finished (any outcome). Used by automatic sync (Phase T2)."""
         self._listeners.append(listener)
@@ -431,6 +445,7 @@ class JobRunner:
         try:
             opened = self.open_transports(config, [pair_by_name.get(n) for n in job.pairs])
         except Exception as exc:  # noqa: BLE001 - reported through job.error, not raised
+            exc = self._explain("adb", exc)
             job.error = str(exc)
             log(f"ERROR: could not start job: {exc}")
             _LOG.warning("androsync: job %s could not start (pairs %s): %s", job.id, job.pairs, exc)
@@ -504,6 +519,7 @@ class JobRunner:
                 )
                 job.summaries[name] = summary
             except Exception as exc:  # noqa: BLE001 - one pair failing must not abort the rest
+                exc = self._explain(pair.transport, exc)
                 log(f"ERROR {name}: {exc}")
                 job.error = str(exc)
                 any_error = True

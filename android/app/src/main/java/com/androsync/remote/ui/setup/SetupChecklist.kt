@@ -1,6 +1,7 @@
 package com.androsync.remote.ui.setup
 
 import com.androsync.remote.data.api.DeviceStateDto
+import com.androsync.remote.data.settings.Preset
 
 /**
  * The "Connect your phone" checklist (task 37f, issue #10).
@@ -51,6 +52,20 @@ fun deviceReadiness(laptopReachable: Boolean, devices: List<DeviceStateDto>): De
     devices.any { it.state == "unauthorized" } -> DeviceReadiness.UNAUTHORIZED
     devices.any { it.state == "offline" } -> DeviceReadiness.OFFLINE
     else -> DeviceReadiness.NO_DEVICE
+}
+
+/**
+ * The cause to name first when adb sees no phone but the phone app reaches the laptop over [via] (Phase V3), or null
+ * when there is nothing to add (no phone app connected, or the app reached the laptop through the cable).
+ */
+fun phoneProblemLead(via: Preset, agentConnected: Boolean): String? {
+    if (!agentConnected) return null
+    val route = when (via) {
+        Preset.TAILSCALE -> "over Tailscale"
+        Preset.LAN -> "over the local network"
+        else -> return null
+    }
+    return "You are connected $route. Pairs that use USB or Wi-Fi debugging need a cable or Wi-Fi debugging."
 }
 
 /**

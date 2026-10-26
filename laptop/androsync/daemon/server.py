@@ -32,6 +32,7 @@ from androsync import config_edit, state
 from androsync.browse import BrowseError, BrowseForbidden, browse_local, browse_remote, mkdir_local, mkdir_remote
 from androsync.config import Config, ConfigError
 from androsync.conflicts import ConflictsError, clean, list_conflicts, restore
+from androsync.daemon.problems import classify_route, explain_failure
 from androsync.daemon.jobs import JobBusy, JobRunner, current_job_dict, job_to_dict, pairs_status
 from androsync.executor import run_pair
 from androsync.transport.agent import POLL_SECONDS, AgentBroker, AgentBusy, AgentCancelled, AgentTransport
@@ -207,6 +208,7 @@ class _Handler(BaseHTTPRequestHandler):
             "devices": info.get("devices", []),
             "current_job": current_job_dict(self.api._runner.current()),
             "agent": "connected" if self.api.agent.connected() else "absent",
+            "agent_route": self.api.agent.route() if self.api.agent.connected() else None,
         }
         return self._send_json(200, body)
 
@@ -276,6 +278,7 @@ class _Handler(BaseHTTPRequestHandler):
         params = parse_qs(query)
         agent_id = (params.get("agent") or [None])[0]
         self.api.agent.report_state((params.get("net") or [None])[0], (params.get("battery") or [None])[0])
+        self.api.agent.report_route(classify_route(self.client_address[0]))
         try:
             op = self.api.agent.next_op(max(0.0, min(wait, POLL_SECONDS)), agent_id)
         except AgentBusy:
@@ -431,6 +434,16 @@ class _Handler(BaseHTTPRequestHandler):
 
     # -- folder browsing (task 23b: the app's folder pickers) ---------------
 
+    def _explain_no_phone(self, message: str, pair) -> str:
+        """``message``, with the wrong-connection sentence first when the phone app is connected instead (Phase V3)."""
+        agent = self.api.agent
+        return explain_failure(
+            message,
+            pair_transport=pair.transport if pair is not None else "adb",
+            agent_connected=agent.connected(),
+            agent_route=agent.route(),
+        )
+
     def _remote_transport_or_error(self, pair=None):
         """The 503/409/502 gating shared by the remote browse and mkdir handlers.
 
@@ -442,7 +455,7 @@ class _Handler(BaseHTTPRequestHandler):
             if not self.api.agent.connected():
                 return None, (503, {"error": "the phone app's agent is not connected"})
         elif not has_device and (pair is not None or not self.api.agent.connected()):
-            return None, (503, {"error": "phone not connected"})
+            return None, (503, {"error": self._explain_no_phone("phone not connected", pair)})
         if self.api._runner.current() is not None:
             return None, (409, {"error": "busy"})
         if agent_pair or not has_device:  # the phone app's agent does the work (task 37d)

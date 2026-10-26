@@ -118,6 +118,40 @@ def test_a_mixed_job_syncs_the_agent_pair_and_fails_only_the_adb_pair(tmp_path):
         env.close()
 
 
+def test_an_adb_pair_failure_names_the_real_cause_when_the_phone_app_is_connected(tmp_path):
+    def no_device(config):
+        raise RuntimeError("no device found - check the USB cable and that USB debugging is enabled")
+
+    env = make_env(tmp_path, [("viaagent", "agent"), ("viaadb", "adb")], factory=no_device)
+    try:
+        put(tmp_path / "laptop" / "viaagent", "x.txt", "x", 1_700_000_000)
+        put(tmp_path / "laptop" / "viaadb", "y.txt", "y", 1_700_000_000)
+        job = run_job(env)
+        assert job["state"] == "failed"
+        _, pairs = env.request("GET", "/v1/pairs")
+        result = {p["name"]: p["last_result"] for p in pairs}["viaadb"]
+        assert result.startswith("FAILED: This pair works over USB or Wi-Fi debugging only, but the phone is connected ")
+        assert "no device found - check the USB cable" in result
+        assert job["error"].startswith("This pair works over USB or Wi-Fi debugging only")
+        _, ping = env.request("GET", "/v1/ping")
+        assert ping["agent"] == "connected" and ping["agent_route"] == "usb"  # the test client is on loopback
+    finally:
+        env.close()
+
+
+def test_an_adb_pair_failure_keeps_the_plain_adb_text_without_the_phone_app(tmp_path):
+    def no_device(config):
+        raise RuntimeError("no device found - check the USB cable and that USB debugging is enabled")
+
+    (tmp_path / "laptop" / "viaadb").mkdir(parents=True)
+    env = Env(tmp_path / "env", config_text=config_text(tmp_path, [("viaadb", "adb")]), adb_factory=no_device, start_agent=False)
+    try:
+        job = run_job(env)
+        assert job["error"] == "no device found - check the USB cable and that USB debugging is enabled"
+    finally:
+        env.close()
+
+
 def test_an_adb_only_job_still_fails_as_before_when_there_is_no_phone(tmp_path):
     env = make_env(tmp_path, [("viaadb", "adb")])
     try:

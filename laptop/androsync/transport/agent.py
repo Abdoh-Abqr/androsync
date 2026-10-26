@@ -85,6 +85,8 @@ class AgentBroker:
         #: What the agent last said about its phone (network kind, charging), and when (Phase T3).
         self._phone_state: dict[str, Any] = {}
         self._phone_state_at: float | None = None
+        #: How the agent's last request arrived: usb, tailscale, lan or other (Phase V3), for the error texts.
+        self._route: str | None = None
 
     # -- state ------------------------------------------------------------------------------------------------
 
@@ -148,6 +150,15 @@ class AgentBroker:
             if battery in ("charging", "discharging"):
                 self._phone_state["charging"] = battery == "charging"
             self._phone_state_at = self._clock()
+
+    def report_route(self, route: str | None) -> None:
+        with self._cond:
+            self._route = route
+
+    def route(self) -> str | None:
+        """``usb``, ``tailscale``, ``lan`` or ``other`` for the agent's last poll; ``None`` before the first one."""
+        with self._cond:
+            return self._route
 
     def phone_state(self, max_age: float = 120.0) -> dict[str, Any]:
         """``{"net": ..., "charging": ...}`` as last reported, or ``{}`` when nothing recent is known."""

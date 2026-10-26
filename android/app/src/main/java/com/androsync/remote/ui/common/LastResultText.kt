@@ -11,6 +11,15 @@ data class LastResultDisplay(val text: String, val isFailure: Boolean)
 
 private const val FAILED_PREFIX = "FAILED:"
 
+private const val WRONG_CONNECTION_START = "This pair works over USB or Wi-Fi debugging only"
+
+/**
+ * The first sentence of the laptop's wrong-connection message ("This pair works over USB or Wi-Fi debugging only, but
+ * the phone is connected over Tailscale right now."), for places with little room; other texts come back unchanged.
+ */
+fun errorHeadline(error: String): String =
+    if (error.startsWith(WRONG_CONNECTION_START)) error.substringBefore(". ").trimEnd('.') + "." else error
+
 fun formatLastResult(lastResult: String?): LastResultDisplay? {
     if (lastResult.isNullOrBlank()) return null
     if (lastResult.startsWith(FAILED_PREFIX)) {

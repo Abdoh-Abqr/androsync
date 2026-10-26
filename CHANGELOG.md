@@ -5,6 +5,9 @@ All notable changes to androsync are recorded here. Format loosely follows
 
 ## [Unreleased]
 
+### Improved
+- A pair that works over USB or Wi-Fi debugging only now says so first when the phone is connected another way ("This pair works over USB or Wi-Fi debugging only, but the phone is connected over Tailscale right now."), then gives the usual hint. The app also names the connection when it cannot see a phone over adb.
+
 ### Changed
 - README: new introduction (Linux and Android, USB or Tailscale), exact Linux install steps for Ubuntu, Debian, Fedora and Arch for a laptop, desktop PC or server, a visible Buy me a coffee button, release and license badges.
 - The Syncthing comparison tables are gone from the docs; `docs/syncthing.md` is now a plain how-to.

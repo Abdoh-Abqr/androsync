@@ -9,6 +9,21 @@ import org.junit.Test
 class LastResultTextTest {
 
     @Test
+    fun `headline keeps only the first sentence of the wrong connection message`() {
+        val full = "This pair works over USB or Wi-Fi debugging only, but the phone is connected over Tailscale right now. " +
+            "no device found - check the USB cable. Or set this pair to \"This app (no debugging)\"."
+        assertEquals(
+            "This pair works over USB or Wi-Fi debugging only, but the phone is connected over Tailscale right now.",
+            errorHeadline(full),
+        )
+    }
+
+    @Test
+    fun `headline leaves other errors unchanged`() {
+        assertEquals("no device found. Check the cable.", errorHeadline("no device found. Check the cable."))
+    }
+
+    @Test
     fun `null result returns null`() {
         assertNull(formatLastResult(null))
     }
