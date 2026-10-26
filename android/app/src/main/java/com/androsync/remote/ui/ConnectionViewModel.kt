@@ -9,6 +9,7 @@ import com.androsync.remote.data.settings.LaptopProfile
 import com.androsync.remote.data.settings.SettingsRepository
 import com.androsync.remote.ui.common.ConnectionState
 import com.androsync.remote.ui.common.repairSavedAddresses
+import com.androsync.remote.ui.support.AppLog
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -116,6 +117,7 @@ class ConnectionViewModel(
         when (val outcome = connectionProbe.probe(token, lanUrl, tailscaleUrl)) {
             is ProbeOutcome.Reachable -> {
                 val result = outcome.result
+                if (_connectionState.value !is ConnectionState.Connected) AppLog.add("connection", "connected via ${result.preset}")
                 _connectionState.value = ConnectionState.Connected(
                     via = result.preset,
                     baseUrl = result.baseUrl,
@@ -131,6 +133,7 @@ class ConnectionViewModel(
             }
 
             is ProbeOutcome.Unreachable -> {
+                if (_connectionState.value !is ConnectionState.Unreachable) AppLog.add("connection", "lost: ${outcome.lastError}")
                 _connectionState.value = ConnectionState.Unreachable(outcome.lastError)
             }
         }

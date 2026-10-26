@@ -111,6 +111,7 @@ class AgentService : Service() {
         AgentState.set(text)
         if (text == lastText) return
         lastText = text
+        com.androsync.remote.ui.support.AppLog.add("agent", text)
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIFICATION_ID, notification(text))
     }

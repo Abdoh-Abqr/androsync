@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.androsync.remote.ui.setup.ConnectPhoneScreen
+import com.androsync.remote.ui.support.SupportScreen
 import androidx.navigation.compose.rememberNavController
 import com.androsync.remote.ui.common.ConnectionState
 import com.androsync.remote.ui.job.JobScreen
@@ -193,12 +194,20 @@ private fun AndroSyncNavHost(
                 onBack = { navController.popBackStack() },
             )
         }
+        composable(Routes.SUPPORT) {
+            SupportScreen(
+                connectionState = connectionState,
+                apiClient = connectionViewModel.activeApiClient.collectAsStateWithLifecycle().value,
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 connectionState = connectionState,
                 onBack = { navController.popBackStack() },
                 onConnectPhone = { navController.navigate(Routes.CONNECT) },
                 onAddLaptop = { navController.navigate(Routes.SETUP_ADD) },
+                onOpenSupport = { navController.navigate(Routes.SUPPORT) },
                 onEditLaptop = { navController.navigate(Routes.SETUP_EDIT) },
                 onLaptopChanged = connectionViewModel::refreshNow,
                 onForgotSetup = {

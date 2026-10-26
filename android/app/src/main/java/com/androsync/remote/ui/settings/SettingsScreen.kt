@@ -54,6 +54,7 @@ fun SettingsScreen(
     onConnectPhone: () -> Unit = {},
     onAddLaptop: () -> Unit = {},
     onEditLaptop: () -> Unit = {},
+    onOpenSupport: () -> Unit = {},
     onLaptopChanged: () -> Unit = {},
     viewModel: SettingsViewModel = rememberSettingsViewModel(),
 ) {
@@ -173,7 +174,7 @@ fun SettingsScreen(
 
             HorizontalDivider()
 
-            AboutSection(connectionState)
+            AboutSection(connectionState, onOpenSupport)
 
             SupportSection()
         }
@@ -256,7 +257,7 @@ private fun ForgetSetupDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun AboutSection(connectionState: ConnectionState) {
+private fun AboutSection(connectionState: ConnectionState, onOpenSupport: () -> Unit) {
     val context = LocalContext.current
     val appVersion = remember {
         runCatching {
@@ -268,7 +269,10 @@ private fun AboutSection(connectionState: ConnectionState) {
     Text("About", style = MaterialTheme.typography.titleMedium)
     Text("AndroSync Remote $appVersion")
     Text(if (laptopVersion != null) "Laptop: androsync $laptopVersion" else "Laptop version: not connected")
-    Text("Free software, GPL-3.0-or-later.", style = MaterialTheme.typography.bodySmall)
+    Text("Free software, GPL-3.0-or-later. Made by Abdoh-Abqr.", style = MaterialTheme.typography.bodySmall)
+    OutlinedButton(onClick = onOpenSupport, modifier = Modifier.fillMaxWidth()) {
+        Text("Help and support (report a problem)")
+    }
     OutlinedButton(onClick = { openUrl(context, ProjectLinks.REPO) }, modifier = Modifier.fillMaxWidth()) {
         Text("Source code and guides (GitHub)")
     }

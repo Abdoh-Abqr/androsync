@@ -10,6 +10,7 @@ object Routes {
     const val SETTINGS = "settings"
     const val JOBS = "jobs"
     const val CONNECT = "connect"
+    const val SUPPORT = "support"
     const val PAIR_NEW = "pair/new"
     const val PAIR_EDIT_PATTERN = "pair/{name}"
 

@@ -9,6 +9,7 @@ import com.androsync.remote.data.settings.DEFAULT_AUTO_REFRESH_SECONDS
 import com.androsync.remote.data.settings.LaptopProfile
 import com.androsync.remote.data.settings.SettingsRepository
 import com.androsync.remote.ui.setup.TestConnectionState
+import com.androsync.remote.ui.support.AppLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -148,6 +149,7 @@ class SettingsViewModel(
             } catch (e: Exception) {
                 "Could not get a new token: ${e.message ?: e.javaClass.simpleName}"
             }
+            AppLog.add("token", message)
             _uiState.update { it.copy(tokenMessage = message) }
         }
     }
