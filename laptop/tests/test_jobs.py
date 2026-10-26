@@ -650,3 +650,22 @@ def test_cancelling_state_is_reported_by_the_api_dict_and_counts_as_busy(tmp_pat
         runner.submit()
     blocking.release.set()
     assert wait_until(lambda: job.state == "cancelled", timeout=5)
+
+
+def test_a_failed_job_never_shows_as_finished_before_its_pairs_failure_is_saved(tmp_path):
+    """The race behind a red CI run: `failed` was set first and each pair's FAILED result written a moment later."""
+    local = tmp_path / "local"
+    local.mkdir()
+
+    def broken_transport_factory(_config: Config):
+        raise RuntimeError("no device attached")
+
+    for round_number in range(25):
+        config = build_config(
+            tmp_path, [{"name": f"p{round_number}", "local": str(local), "remote": str(tmp_path / "remote")}]
+        )
+        runner = JobRunner(lambda: config, broken_transport_factory)
+        job = runner.submit()
+        while job.state in ("queued", "running"):
+            pass  # no sleep on purpose: read the pair the very moment the state flips
+        assert state.load_pair_meta(f"p{round_number}").get("last_result") == "FAILED: no device attached"

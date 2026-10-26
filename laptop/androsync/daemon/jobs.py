@@ -398,7 +398,6 @@ class JobRunner:
             opened = self.open_transports(config, [pair_by_name.get(n) for n in job.pairs])
         except Exception as exc:  # noqa: BLE001 - reported through job.error, not raised
             job.error = str(exc)
-            job.state = "failed"
             log(f"ERROR: could not start job: {exc}")
             _LOG.warning("androsync: job %s could not start (pairs %s): %s", job.id, job.pairs, exc)
             pair_names = job.pairs if job.pairs else [p.name for p in config.pairs]
@@ -406,6 +405,8 @@ class JobRunner:
                 _mark_pair_failed(name, exc)
             run_log.close()
             job.finished = time.time()
+            # Last, so whoever sees the job end (the app's pair list, a test) finds each pair's FAILED result already saved.
+            job.state = "failed"
             return
 
         job.transports = opened.all()
@@ -518,16 +519,16 @@ class JobRunner:
         except UndoError as exc:
             log(f"ERROR {name}: {exc}")
             job.error = str(exc)
-            job.state = "failed"
             _LOG.warning("androsync: job %s undo of pair %s failed: %s", job.id, name, exc)
             _mark_pair_failed(name, exc)
+            job.state = "failed"  # after the pair's result is saved, see _run
             return
         except Exception as exc:  # noqa: BLE001 - reported through job.error, not raised
             log(f"ERROR {name}: {exc}")
             job.error = str(exc)
-            job.state = "failed"
             _LOG.warning("androsync: job %s undo of pair %s failed: %s", job.id, name, exc)
             _mark_pair_failed(name, exc)
+            job.state = "failed"
             return
 
         job.undo_summary = asdict(summary)
