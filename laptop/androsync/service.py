@@ -31,6 +31,7 @@ from typing import Callable
 
 import yaml
 
+from androsync.icons import ICON_SIZES, icon_png, icon_svg
 from androsync.config import Config, ConfigError, default_config_path, load_config, secure_file
 
 LogFn = Callable[[str], None]
@@ -437,6 +438,7 @@ Exec={exec_start} gui
 Icon=androsync
 Terminal=false
 Categories=Utility;
+StartupWMClass=androsync
 """
 
 
@@ -451,6 +453,15 @@ def _desktop_file_path() -> Path:
 
 def _icon_file_path() -> Path:
     return _xdg_data_home() / "icons" / "hicolor" / "scalable" / "apps" / "androsync.svg"
+
+
+def _hicolor_dir() -> Path:
+    return _xdg_data_home() / "icons" / "hicolor"
+
+
+def _png_icon_paths() -> list[tuple[int, Path]]:
+    """Where each packaged PNG size goes in the user's icon theme."""
+    return [(size, _hicolor_dir() / f"{size}x{size}" / "apps" / "androsync.png") for size in ICON_SIZES]
 
 
 def render_desktop_file(exec_start: str) -> str:
@@ -470,13 +481,17 @@ def cmd_service_install_launcher(args: argparse.Namespace) -> int:
         desktop_path.write_text(render_desktop_file(exec_start))
 
     icon_path = _icon_file_path()
-    icon_content = (
-        importlib.resources.files("androsync").joinpath("assets", "androsync.svg").read_text(encoding="utf-8")
-    )
     log(f"+ write {icon_path}")
     if not dry_run:
         icon_path.parent.mkdir(parents=True, exist_ok=True)
-        icon_path.write_text(icon_content)
+        icon_path.write_text(icon_svg())
+    for size, png_path in _png_icon_paths():
+        log(f"+ write {png_path}")
+        if not dry_run:
+            png_path.parent.mkdir(parents=True, exist_ok=True)
+            png_path.write_bytes(icon_png(size))
+
+    _refresh_icon_cache(log, dry_run)
 
     if shutil.which("update-desktop-database") is not None:
         _run(
@@ -492,12 +507,25 @@ def cmd_service_uninstall_launcher(args: argparse.Namespace) -> int:
     log: LogFn = print
     dry_run = bool(getattr(args, "dry_run", False))
 
-    for path in (_desktop_file_path(), _icon_file_path()):
+    for path in (_desktop_file_path(), _icon_file_path(), *(p for _size, p in _png_icon_paths())):
         log(f"+ rm {path}")
         if not dry_run and path.exists():
             path.unlink()
+    _refresh_icon_cache(log, dry_run)
 
     return 0
+
+
+def _refresh_icon_cache(log: LogFn, dry_run: bool) -> None:
+    """Tell GNOME the icon theme changed. A stale ``icon-theme.cache`` makes a newly added icon invisible, which is why
+    the launcher showed no icon: GTK trusts the cache, and ``-t`` is needed because the user's hicolor folder has no
+    ``index.theme``."""
+    hicolor = _hicolor_dir()
+    if shutil.which("gtk-update-icon-cache") is None:
+        log("(gtk-update-icon-cache not found; if the icon does not show, log out and in again)")
+        return
+    if dry_run or hicolor.is_dir():
+        _run(["gtk-update-icon-cache", "-f", "-t", "-q", str(hicolor)], log=log, dry_run=dry_run, check=False)
 
 
 # ---------------------------------------------------------------------------

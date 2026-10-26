@@ -466,10 +466,27 @@ def _log_uncaught_exception(exc_type, exc_value, exc_tb) -> None:  # noqa: ANN00
     sys.__excepthook__(exc_type, exc_value, exc_tb)
 
 
+def _set_window_icon(root: tk.Tk) -> None:
+    """Give the window (and every dialog) the program's icon; a missing icon must never stop the window."""
+    try:
+        import base64
+
+        from androsync.icons import icon_png
+
+        photo = tk.PhotoImage(master=root, data=base64.b64encode(icon_png(128)))
+        root.iconphoto(True, photo)
+        root._androsync_icon = photo  # keep a reference, Tk drops images that nothing holds on to
+    except Exception:  # noqa: BLE001
+        _LOG.debug("androsync: could not set the window icon", exc_info=True)
+
+
 def main(version: str) -> int:
     """Build and run the window. `cli.cmd_gui` is what handles tkinter being missing."""
     sys.excepthook = _log_uncaught_exception
-    root = tk.Tk()
+    # The class name ties the window to the launcher (`StartupWMClass=androsync` in the .desktop file), so the dock shows the
+    # launcher's icon for it.
+    root = tk.Tk(className="androsync")
+    _set_window_icon(root)
     App(root, version=version)
     root.mainloop()
     return 0

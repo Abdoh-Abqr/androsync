@@ -290,3 +290,15 @@ def test_support_dialog_builds_and_does_not_shadow_tk_internal_name(tmp_path):
         dialog.destroy()
     finally:
         root.destroy()
+
+
+def test_the_window_gets_the_program_icon_and_the_launcher_class():
+    from androsync.gui import app as app_module
+
+    root = tk.Tk(className="androsync")
+    try:
+        app_module._set_window_icon(root)
+        assert root.winfo_class() == "Androsync"  # what StartupWMClass=androsync in the .desktop file matches
+        assert getattr(root, "_androsync_icon", None) is not None
+    finally:
+        root.destroy()

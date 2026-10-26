@@ -8,7 +8,8 @@ inside the central 66 x 66 area (Android crops an adaptive icon to a circle or r
 colour behind it.
 
 It writes: the Android adaptive icon (foreground png, a white monochrome layer for themed icons, background colour), the
-desktop launcher icon, the F-Droid store icon (512 px) and `branding/logo-512.png`. Needs ImageMagick (`convert`).
+desktop launcher icon (svg and the 48/128/256 px pngs the window and launcher use), the F-Droid store icon (512 px) and
+`branding/logo-512.png`. Needs ImageMagick (`convert`).
 """
 from __future__ import annotations
 
@@ -108,6 +109,11 @@ def apply(root: Path, background: str | None) -> list[Path]:
     store.parent.mkdir(parents=True, exist_ok=True)
     convert(["-background", "none", "-density", "800", str(desktop), "-resize", "512x512", f"PNG32:{store}"])
     written.append(store)
+    assets = root / "laptop" / "androsync" / "assets"
+    for size in (48, 128, 256):  # the window icon and the launcher's PNG icons (the desktop cannot use the svg everywhere)
+        png = assets / f"androsync-{size}.png"
+        convert(["-background", "none", "-density", "800", str(desktop), "-resize", f"{size}x{size}", f"PNG32:{png}"])
+        written.append(png)
     big = root / "branding" / "logo-512.png"
     convert(["-background", "none", "-density", "800", str(desktop), "-resize", "512x512", f"PNG32:{big}"])
     written.append(big)

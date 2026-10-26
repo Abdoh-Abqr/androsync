@@ -671,3 +671,61 @@ def test_url_label_names_each_kind_of_address():
     assert service.url_label("http://box.tail1.ts.net:8765") == "Tailscale"
     assert service.url_label("http://192.168.0.5:8765") == "LAN / Wi-Fi"
     assert service.url_label("http://100.128.0.1:8765") == "LAN / Wi-Fi"  # just outside the Tailscale range
+
+
+# ---------------------------------------------------------------------------
+# the desktop icon (Phase U): png sizes, StartupWMClass and a refreshed icon cache
+# ---------------------------------------------------------------------------
+
+
+def test_install_launcher_also_writes_png_icons_and_the_window_class(tmp_path, monkeypatch, xdg_data_home):
+    monkeypatch.setattr(service, "_androsync_executable", lambda: "/usr/local/bin/androsync")
+    monkeypatch.setattr(service.shutil, "which", lambda name: None)
+    service.cmd_service_install_launcher(argparse.Namespace(dry_run=False))
+
+    for size in (48, 128, 256):
+        png = xdg_data_home / "icons" / "hicolor" / f"{size}x{size}" / "apps" / "androsync.png"
+        assert png.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n", png
+    assert "StartupWMClass=androsync" in (xdg_data_home / "applications" / "androsync.desktop").read_text()
+
+
+def test_install_launcher_refreshes_the_icon_cache_so_the_icon_shows(tmp_path, monkeypatch, xdg_data_home):
+    calls: list[list[str]] = []
+    monkeypatch.setattr(service, "_androsync_executable", lambda: "/usr/local/bin/androsync")
+    monkeypatch.setattr(service.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(service.subprocess, "run", make_fake_run(calls))
+
+    service.cmd_service_install_launcher(argparse.Namespace(dry_run=False))
+
+    refresh = next(call for call in calls if call[0] == "gtk-update-icon-cache")
+    assert "-f" in refresh and "-t" in refresh  # -t: the user's hicolor folder has no index.theme
+    assert refresh[-1] == str(xdg_data_home / "icons" / "hicolor")
+
+
+def test_install_launcher_dry_run_names_the_cache_refresh_and_writes_nothing(tmp_path, monkeypatch, xdg_data_home, capsys):
+    monkeypatch.setattr(service, "_androsync_executable", lambda: "/usr/local/bin/androsync")
+    monkeypatch.setattr(service.shutil, "which", lambda name: f"/usr/bin/{name}")
+    service.cmd_service_install_launcher(argparse.Namespace(dry_run=True))
+    assert "gtk-update-icon-cache" in capsys.readouterr().out
+    assert not (xdg_data_home / "icons").exists()
+
+
+def test_uninstall_launcher_removes_the_png_icons_too(tmp_path, monkeypatch, xdg_data_home):
+    monkeypatch.setattr(service, "_androsync_executable", lambda: "/usr/local/bin/androsync")
+    monkeypatch.setattr(service.shutil, "which", lambda name: None)
+    service.cmd_service_install_launcher(argparse.Namespace(dry_run=False))
+    service.cmd_service_uninstall_launcher(argparse.Namespace(dry_run=False))
+    assert not list((xdg_data_home / "icons").rglob("androsync.png"))
+
+
+def test_the_png_icons_are_packaged_with_the_right_sizes():
+    import io
+    import struct
+
+    from androsync.icons import ICON_SIZES, icon_png
+
+    for size in ICON_SIZES:
+        data = icon_png(size)
+        assert data[:8] == b"\x89PNG\r\n\x1a\n"
+        width, height = struct.unpack(">II", data[16:24])
+        assert (width, height) == (size, size)
