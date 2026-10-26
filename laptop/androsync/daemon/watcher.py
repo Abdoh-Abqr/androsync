@@ -32,7 +32,7 @@ import time
 from pathlib import Path
 from typing import Callable, Protocol
 
-from androsync.config import Config, ConfigError
+from androsync.config import Config, ConfigError, secure_file
 from androsync.daemon.jobs import JobBusy, JobRunner
 from androsync.daemon.server import ApiServer
 from androsync.model import Side
@@ -355,6 +355,8 @@ class Daemon:
                 "service.token is not set in the config - run `androsync service install` first"
             )
         self._config = config
+        if secure_file(self._config_path):
+            _LOG.info("androsync: made %s readable by you only (it holds the token)", self._config_path)
 
         self._runner = JobRunner(
             self._config_loader, self.transport_factory, self.agent_broker, self._default_device_transport_factory

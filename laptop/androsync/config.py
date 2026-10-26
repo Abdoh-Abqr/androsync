@@ -138,6 +138,21 @@ class Config:
     phones: dict[str, PhoneConfig] = field(default_factory=dict)
 
 
+def secure_file(path: Path) -> bool:
+    """Make ``path`` readable by its owner only (mode 600); returns True if its mode had to change.
+
+    The config holds the service token, which is the key to the whole API, so no other user of the computer may read it.
+    """
+    try:
+        mode = path.stat().st_mode & 0o777
+        if mode != 0o600:
+            path.chmod(0o600)
+            return True
+    except OSError:
+        pass
+    return False
+
+
 def default_config_path() -> Path:
     """Return ``$XDG_CONFIG_HOME/androsync/config.yaml`` or the ``~/.config`` fallback."""
     xdg = os.environ.get("XDG_CONFIG_HOME")

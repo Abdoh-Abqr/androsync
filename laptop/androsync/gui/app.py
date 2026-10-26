@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import queue
 import sys
+import secrets
 import threading
 import tkinter as tk
 from tkinter import messagebox
@@ -20,6 +21,7 @@ from androsync import config_edit, service, service_state
 from androsync.browse import BrowseError, browse_remote
 from androsync.config import Config, ConfigError, default_config_path, load_config
 from androsync.daemon.watcher import Daemon
+from androsync.apiclient import ApiError
 from androsync.gui.backend import Backend, reachable_client
 from androsync.gui.dialogs import AboutDialog, PairEditorDialog, QrDialog
 from androsync.gui.log_panel import LogPanel
@@ -258,7 +260,27 @@ class App:
         if config is None or not config.service.token:
             messagebox.showerror("Not set up", "Run `androsync service install` first to generate a token.")
             return
-        QrDialog(self._root, token=config.service.token, urls=service.build_urls(config))
+        QrDialog(
+            self._root, token=config.service.token, urls=service.build_urls(config), on_new_token=self._on_new_token
+        )
+
+    def _on_new_token(self) -> None:
+        """Make a new token through the running service (it switches at once), or in the file if nothing is running."""
+        config = self._config()
+        if config is None:
+            return
+        client = reachable_client(config, self._state)
+        try:
+            if client is not None:
+                client.rotate_token()
+            else:
+                raw = config_edit.load_raw(default_config_path())
+                config_edit.save_raw(default_config_path(), config_edit.set_service_token(raw, secrets.token_urlsafe(32)))
+        except (ApiError, ConfigError, OSError) as exc:
+            messagebox.showerror("Could not make a new token", str(exc))
+            return
+        self._log_panel.append("a new token was made; scan the new QR code on every phone")
+        self._on_show_qr()
 
     # -- pairs panel actions --------------------------------------------------
 

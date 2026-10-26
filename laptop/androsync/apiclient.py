@@ -62,6 +62,10 @@ class ApiClient:
     def ping(self) -> dict:
         return self._request("GET", "/v1/ping")
 
+    def rotate_token(self) -> str:
+        """Ask the running service for a new token (it saves it and stops accepting the old one)."""
+        return self._request("POST", "/v1/token/rotate", body={})["token"]
+
     def pairs(self) -> list[dict]:
         return self._request("GET", "/v1/pairs")
 

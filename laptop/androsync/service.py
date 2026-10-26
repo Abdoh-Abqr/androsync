@@ -31,7 +31,7 @@ from typing import Callable
 
 import yaml
 
-from androsync.config import Config, ConfigError, default_config_path, load_config
+from androsync.config import Config, ConfigError, default_config_path, load_config, secure_file
 
 LogFn = Callable[[str], None]
 
@@ -146,6 +146,7 @@ def _load_raw_config(config_path: Path, *, log: LogFn, dry_run: bool) -> dict:
         if not dry_run:
             config_path.parent.mkdir(parents=True, exist_ok=True)
             config_path.write_text(yaml.safe_dump(raw, sort_keys=False))
+            secure_file(config_path)
         return raw
     with open(config_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
@@ -231,6 +232,7 @@ def cmd_service_install(args: argparse.Namespace) -> int:
     log(f"+ write {config_path}")
     if not dry_run:
         config_path.write_text(yaml.safe_dump(raw, sort_keys=False))
+        secure_file(config_path)  # holds the token: owner only
 
     exec_start = _androsync_executable()
     unit_path = _systemd_unit_path()
@@ -297,6 +299,26 @@ def _systemctl_action(action: str, args: argparse.Namespace) -> int:
     if dry_run or result is None:
         return 0
     return result.returncode
+
+
+def cmd_service_new_token(args: argparse.Namespace) -> int:
+    """Make a new service token and save it (task S2). The token itself is never printed."""
+    from androsync import config_edit
+
+    config_path = args.config if getattr(args, "config", None) else default_config_path()
+    if not config_path.exists():
+        print(f"androsync: no config at {config_path}; run `androsync service install` first", file=sys.stderr)
+        return 2
+    try:
+        raw = config_edit.load_raw(config_path)
+        config_edit.save_raw(config_path, config_edit.set_service_token(raw, secrets.token_urlsafe(32)))
+    except ConfigError as exc:
+        print(f"androsync: {exc}", file=sys.stderr)
+        return 2
+    print(f"A new token was saved in {config_path}.")
+    print("Restart the service so it uses it (`androsync service restart`), then show the QR code again")
+    print("(`androsync qr`) and scan it on every phone. Phones with the old token stop working until they do.")
+    return 0
 
 
 def cmd_service_start(args: argparse.Namespace) -> int:
@@ -622,6 +644,11 @@ def add_service_commands(subparsers, common: argparse.ArgumentParser) -> None:
         sub_p = service_sub.add_parser(name, parents=[common], help=help_text)
         sub_p.add_argument("--dry-run", action="store_true", help="Print the command without running it")
         sub_p.set_defaults(func=func)
+
+    new_token_p = service_sub.add_parser(
+        "new-token", parents=[common], help="Generate a new token (phones must scan the QR code again)"
+    )
+    new_token_p.set_defaults(func=cmd_service_new_token)
 
     autostart_p = service_sub.add_parser(
         "autostart", parents=[common], help="Enable/disable starting at boot without changing whether it runs now"

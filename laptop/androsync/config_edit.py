@@ -15,7 +15,7 @@ from typing import Any
 
 import yaml
 
-from androsync.config import TRANSPORT_MODES, ConfigError, load_config
+from androsync.config import TRANSPORT_MODES, ConfigError, load_config, secure_file
 from androsync.phone_path import PhonePathError, check_remote, normalize_remote
 
 
@@ -38,6 +38,7 @@ def save_raw(path: Path, raw: dict[str, Any]) -> None:
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path.write_text(text, encoding="utf-8")
+    secure_file(tmp_path)  # the token is in here: owner only, before the file takes the real name
     try:
         load_config(tmp_path)
     except ConfigError:

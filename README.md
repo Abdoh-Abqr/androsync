@@ -183,6 +183,7 @@ One line each, with the full detail:
 
 - **[`PLAN.md`](PLAN.md)** - architecture, the config format, the full HTTP API.
 - **[`docs/install.md`](docs/install.md)** - installing the laptop program, with the status for Linux, macOS and Windows.
+- **[`docs/token.md`](docs/token.md)** - what the token is, where it is stored, how to make a new one.
 - **[`docs/agent-mode.md`](docs/agent-mode.md)** - sync without USB debugging through the app itself: comparison with ADB and Syncthing, the permission, why it is not on Google Play, setup.
 - **[`docs/syncthing.md`](docs/syncthing.md)** - the no-debugging alternative with Syncthing, for photos, a notes vault and an inbox.
 - **[`NEXT_TASKS.md`](NEXT_TASKS.md)** - what was built, when, and why; read this first if you are

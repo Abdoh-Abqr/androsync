@@ -278,8 +278,11 @@ class PairEditorDialog(tk.Toplevel):
 class QrDialog(tk.Toplevel):
     """Shows the daemon token + every URL the phone app could use (`androsync qr`, but in a window)."""
 
-    def __init__(self, master: tk.Widget, *, token: str, urls: list[str]) -> None:
+    def __init__(
+        self, master: tk.Widget, *, token: str, urls: list[str], on_new_token: Callable[[], None] | None = None
+    ) -> None:
         super().__init__(master)
+        self._on_new_token = on_new_token
         self.title("Connect the phone app")
         self.transient(master)
         # grab_set() can raise "grab failed: window not viewable" if called
@@ -301,7 +304,21 @@ class QrDialog(tk.Toplevel):
 
         self._draw_qr(token, urls, row=2 + len(urls))
 
-        ttk.Button(self, text="Close", command=self.destroy).grid(row=3 + len(urls), column=0, pady=8)
+        buttons = ttk.Frame(self)
+        buttons.grid(row=3 + len(urls), column=0, pady=8)
+        if on_new_token is not None:
+            ttk.Button(buttons, text="Make a new token...", command=self._ask_new_token).pack(side="left", padx=4)
+        ttk.Button(buttons, text="Close", command=self.destroy).pack(side="left", padx=4)
+
+    def _ask_new_token(self) -> None:
+        if messagebox.askyesno(
+            "Make a new token?",
+            "The old token stops working at once. Every phone that has it must scan the new QR code again.",
+            parent=self,
+        ):
+            self.destroy()
+            if self._on_new_token is not None:
+                self._on_new_token()
 
     def _draw_qr(self, token: str, urls: list[str], *, row: int) -> None:
         try:
