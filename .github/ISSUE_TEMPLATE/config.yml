@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Read the support guide first
+    url: https://github.com/Abdoh-Abqr/androsync/blob/master/docs/support.md
+    about: Common problems, and how to make the log file.

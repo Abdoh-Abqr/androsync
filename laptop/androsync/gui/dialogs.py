@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import queue
 import threading
+from pathlib import Path
 import tkinter as tk
 import webbrowser
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable
 
 from androsync.browse import BrowseError, BrowseResult
-from androsync import service
+from androsync import service, support
 from androsync.config import DIRECTIONS, CONFLICT_POLICIES, TRANSPORT_MODES, PairConfig
 from androsync.phone_path import PhonePathError, check_remote, normalize_remote, validate_remote
 
@@ -377,4 +378,62 @@ class AboutDialog(tk.Toplevel):
         repo.grid(row=4, column=0, padx=16, pady=(8, 0))
         repo.bind("<Button-1>", lambda _event: webbrowser.open(REPO_URL))
         ttk.Button(self, text="Close", command=self.destroy).grid(row=5, column=0, pady=16)
+
+
+class SupportDialog(tk.Toplevel):
+    """Help, "Report a problem": make the redacted log file and open the problem form (Phase S1)."""
+
+    def __init__(self, master: tk.Widget, *, config_path: Path, version: str) -> None:
+        super().__init__(master)
+        self.title("Report a problem")
+        self.transient(master)
+        self.resizable(False, False)
+        self._config_path = config_path
+        self._version = version
+        self._hide_names = tk.BooleanVar(value=True)
+
+        ttk.Label(
+            self,
+            justify="left",
+            text=(
+                "1. Save the log file. It holds versions, the service state and the last log lines.\n"
+                "   The token, addresses, phone serials and your name are replaced by placeholders.\n"
+                "   Nothing is sent anywhere: you read the file and attach it yourself.\n"
+                "2. Open the problem form, describe what happened, and attach the file."
+            ),
+        ).grid(row=0, column=0, columnspan=3, padx=16, pady=(16, 8), sticky="w")
+        ttk.Checkbutton(
+            self, text="Hide my pair names and folders (recommended)", variable=self._hide_names
+        ).grid(row=1, column=0, columnspan=3, padx=16, sticky="w")
+        ttk.Button(self, text="Save the log file...", command=self._save).grid(row=2, column=0, padx=16, pady=12)
+        ttk.Button(self, text="Open the problem form", command=self._open_form).grid(row=2, column=1, pady=12)
+        column = 2
+        if support.SUPPORT_EMAIL:
+            ttk.Button(self, text="Email us", command=self._email).grid(row=2, column=column, padx=8, pady=12)
+            column += 1
+        ttk.Button(self, text="Close", command=self.destroy).grid(row=3, column=0, columnspan=3, pady=(0, 16))
+
+    def _save(self) -> None:
+        path = filedialog.asksaveasfilename(
+            parent=self,
+            title="Save the log file",
+            initialfile=support.default_bundle_path().name,
+            defaultextension=".zip",
+            filetypes=[("Zip file", "*.zip")],
+        )
+        if not path:
+            return
+        files = support.collect(self._config_path, hide_names=self._hide_names.get())
+        out = support.write_bundle(files, Path(path))
+        messagebox.showinfo(
+            "Saved",
+            f"Saved {out}\n\n{support.describe(files)}\n\nOpen it and read it before you attach it.",
+            parent=self,
+        )
+
+    def _open_form(self) -> None:
+        webbrowser.open(support.issue_url_with(self._version))
+
+    def _email(self) -> None:
+        webbrowser.open(f"mailto:{support.SUPPORT_EMAIL}?subject=AndroSync%20{self._version}%20problem")
 

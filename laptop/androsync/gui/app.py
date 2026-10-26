@@ -23,7 +23,7 @@ from androsync.config import Config, ConfigError, default_config_path, load_conf
 from androsync.daemon.watcher import Daemon
 from androsync.apiclient import ApiError
 from androsync.gui.backend import Backend, reachable_client
-from androsync.gui.dialogs import AboutDialog, PairEditorDialog, QrDialog
+from androsync.gui.dialogs import AboutDialog, PairEditorDialog, QrDialog, SupportDialog
 from androsync.gui.log_panel import LogPanel
 from androsync.gui.logic import (
     close_window_decision,
@@ -61,6 +61,10 @@ class App:
 
         menubar = tk.Menu(root)
         help_menu = tk.Menu(menubar, tearoff=False)
+        help_menu.add_command(
+            label="Report a problem...",
+            command=lambda: SupportDialog(self._root, config_path=default_config_path(), version=self._version),
+        )
         help_menu.add_command(label="About AndroSync", command=lambda: AboutDialog(self._root, version=self._version))
         menubar.add_cascade(label="Help", menu=help_menu)
         root.config(menu=menubar)

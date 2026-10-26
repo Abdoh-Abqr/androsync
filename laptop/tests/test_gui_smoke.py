@@ -278,3 +278,15 @@ def test_editing_something_else_does_not_ask(tmp_path, monkeypatch):
         assert set(state.load_snapshot("p")) == {"a.txt"}  # history kept
     finally:
         root.destroy()
+
+
+def test_support_dialog_builds_and_does_not_shadow_tk_internal_name(tmp_path):
+    from androsync.gui.dialogs import SupportDialog
+
+    root = _make_root()
+    try:
+        dialog = SupportDialog(root, config_path=tmp_path / "config.yaml", version="9.9.9")
+        assert isinstance(dialog._name, str)  # task 32a: never overwrite Tk's internal name
+        dialog.destroy()
+    finally:
+        root.destroy()

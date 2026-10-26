@@ -21,6 +21,7 @@ from androsync.runlog import RunLog, tee as _tee_log
 from androsync.cli_conflicts import add_conflicts_commands
 from androsync.cli_pairs import add_pair_commands
 from androsync.cli_phones import add_phone_commands
+from androsync import support
 from androsync.config import Config, ConfigError, PairConfig, default_config_path, load_config
 from androsync.daemon.watcher import Daemon
 from androsync.executor import ExecutorError, run_pair
@@ -168,6 +169,17 @@ def build_parser() -> argparse.ArgumentParser:
     add_conflicts_commands(subparsers, common)
     add_phone_commands(subparsers, common)
 
+    bundle_p = subparsers.add_parser(
+        "support-bundle",
+        parents=[common],
+        help="Collect a redacted log file to attach to a problem report (nothing is sent anywhere)",
+    )
+    bundle_p.add_argument("--out", help="Where to write the zip (default: your home folder)")
+    bundle_p.add_argument(
+        "--show-names", action="store_true", help="Keep pair names and folders in the bundle (default: hide them)"
+    )
+    bundle_p.set_defaults(func=cmd_support_bundle)
+
     return parser
 
 
@@ -258,6 +270,26 @@ def _human_size(size: int) -> str:
             return f"{int(value)}{unit}" if unit == "B" else f"{value:.1f}{unit}"
         value /= 1024
     return f"{value:.1f}T"
+
+
+# ---------------------------------------------------------------------------
+# support-bundle
+# ---------------------------------------------------------------------------
+
+
+def cmd_support_bundle(args: argparse.Namespace) -> int:
+    config_path = Path(args.config) if getattr(args, "config", None) else default_config_path()
+    files = support.collect(config_path, hide_names=not args.show_names)
+    out = support.write_bundle(files, Path(args.out) if args.out else support.default_bundle_path())
+    print(f"Saved {out}")
+    print(support.describe(files))
+    print()
+    print("Open the zip and read it before you share it: the token, addresses, phone serials, your name and")
+    print("(unless --show-names) pair names and folders are replaced by placeholders, and nothing was sent anywhere.")
+    print(f"Then open a report and attach the file: {support.issue_url_with(__version__)}")
+    if support.SUPPORT_EMAIL:
+        print(f"Or email it to {support.SUPPORT_EMAIL}.")
+    return 0
 
 
 # ---------------------------------------------------------------------------

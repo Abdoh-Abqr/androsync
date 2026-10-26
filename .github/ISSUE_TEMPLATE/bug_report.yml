@@ -1,0 +1,39 @@
+name: Report a problem
+description: Something does not work. Attach the log file from "Report a problem" and nothing private will be in it.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Please attach the log file: in the desktop window **Help, Report a problem...**, or run `androsync support-bundle`
+        (in the app: **Settings, Help and support, Report a problem**). The token, addresses, phone serials and your name are
+        replaced by placeholders. Open the file and read it before you attach it.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "androsync version (`androsync --version`) and app version (Settings, About)."
+      placeholder: "androsync 0.2.0, app 0.2.0 (full)"
+    validations:
+      required: true
+  - type: dropdown
+    id: way
+    attributes:
+      label: How does the laptop reach the phone?
+      options:
+        - USB debugging (adb)
+        - Wi-Fi or Tailscale debugging (adb)
+        - Agent mode (the app)
+        - Not sure
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log file
+      description: Drag the zip here, or paste the part that matters.
