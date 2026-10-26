@@ -21,3 +21,10 @@ verifies the file. Needs ImageMagick (`sudo apt install imagemagick`).
 
 The three candidates I drew are `mark-a.svg`, `mark-b.svg`, `mark-c.svg` (full icons with a background; made by
 `make_marks.py`). They are only examples and are not used anywhere yet.
+
+## A PNG logo works too
+
+If your logo is a picture (PNG, at least 512 px, square), put it here as `branding/logo.png` (a PNG saved with an `.svg` name is
+recognised by its content) and run `python3 branding/apply_logo.py` (needs Pillow). `--shape circle` (default) makes the corners
+transparent, `--shape square` keeps them. The colour behind the Android icon is read from the picture's corner unless you give
+`--background`. The delivered original goes in `branding/original/`, which git ignores; `branding/logo.png` is the cleaned master.
