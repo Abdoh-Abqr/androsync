@@ -92,6 +92,7 @@ _ROUTES: list[tuple[str, re.Pattern, str]] = [
     ("GET", re.compile(r"^/v1/runs/(?P<pair>[^/]+)$"), "_h_runs_list"),
     ("POST", re.compile(r"^/v1/undo/(?P<pair>[^/]+)$"), "_h_undo"),
     ("POST", re.compile(r"^/v1/token/rotate$"), "_h_token_rotate"),
+    ("POST", re.compile(r"^/v1/agent/event$"), "_h_agent_event"),
     # The phone app as an agent (task 37b, issue #14); the wire format is in docs/agent-protocol.md.
     ("GET", re.compile(r"^/v1/agent/next$"), "_h_agent_next"),
     ("POST", re.compile(r"^/v1/agent/result/(?P<id>[^/]+)$"), "_h_agent_result"),
@@ -208,9 +209,25 @@ class _Handler(BaseHTTPRequestHandler):
         }
         return self._send_json(200, body)
 
+    def _pairs_json(self, config: Config) -> list[dict]:
+        return pairs_status(config, self.api.auto.status if self.api.auto is not None else None)
+
     def _h_pairs(self, match: re.Match, query: str) -> int:
         config = self.api._config_loader()
-        return self._send_json(200, pairs_status(config))
+        return self._send_json(200, self._pairs_json(config))
+
+    def _h_agent_event(self, match: re.Match, query: str) -> int:
+        """The phone app saw files change under ``root``: tell automatic sync (Phase T2)."""
+        try:
+            body = self._read_json_body()
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return self._send_json(400, {"error": "bad json"})
+        root = body.get("root") if isinstance(body, dict) else None
+        if not isinstance(root, str) or not root:
+            return self._send_json(400, {"error": "body must be {root}"})
+        if self.api.auto is not None:
+            self.api.auto.mark_root_dirty(root)
+        return self._send_json(200, {"ok": True})
 
     def _h_token_rotate(self, match: re.Match, query: str) -> int:
         """Make a new token (the caller proved it has the old one) and start accepting only the new one.
@@ -358,7 +375,7 @@ class _Handler(BaseHTTPRequestHandler):
             return self._send_json(self._config_edit_error_status(str(exc)), {"error": str(exc)})
 
         config = self.api._config_loader()
-        return self._send_json(201, pairs_status(config))
+        return self._send_json(201, self._pairs_json(config))
 
     def _h_pairs_update(self, match: re.Match, query: str) -> int:
         name = unquote(match.group("name"))
@@ -377,7 +394,7 @@ class _Handler(BaseHTTPRequestHandler):
 
         config = self.api._config_loader()
         # The body stays the pairs list (older apps expect that); a header says the history was reset.
-        return self._send_json(200, pairs_status(config), headers={"X-Androsync-State-Reset": "1"} if state_reset else None)
+        return self._send_json(200, self._pairs_json(config), headers={"X-Androsync-State-Reset": "1"} if state_reset else None)
 
     def _h_pairs_delete(self, match: re.Match, query: str) -> int:
         name = unquote(match.group("name"))
@@ -395,7 +412,7 @@ class _Handler(BaseHTTPRequestHandler):
             state.purge_pair_state(name)
 
         config = self.api._config_loader()
-        return self._send_json(200, pairs_status(config))
+        return self._send_json(200, self._pairs_json(config))
 
     # -- folder browsing (task 23b: the app's folder pickers) ---------------
 
@@ -772,6 +789,7 @@ class ApiServer:
         log: Callable[[str], None] | None = None,
         config_path: Path | None = None,
         agent: AgentBroker | None = None,
+        auto=None,  # noqa: ANN001 - AutoSync; optional so tests can leave it out
     ) -> None:
         self._runner = runner
         self._config_loader = config_loader
@@ -784,6 +802,7 @@ class ApiServer:
         self._config_path = config_path
         # The mailbox for agent mode (task 37b); the daemon passes the one its transports use.
         self.agent: AgentBroker = agent if agent is not None else AgentBroker()
+        self.auto = auto
         self._servers: list[_BoundHTTPServer] = []
         self._threads: list[threading.Thread] = []
 

@@ -96,6 +96,12 @@ class PairConfig:
     conflict_copies: Literal["folder", "beside"] = "folder"
     #: "adb" (default) or "agent": see :data:`TRANSPORT_MODES`.
     transport: Literal["adb", "agent"] = "adb"
+    #: Sync by itself when files change (Phase T2). Off by default; the first sync of a pair is always a manual one.
+    auto: bool = False
+    #: Seconds to wait after the last change before an automatic sync starts, so a burst of changes becomes one sync.
+    auto_delay_s: int = 10
+    #: How often a phone that cannot report changes (adb) is looked at, in seconds.
+    auto_interval_s: int = 300
     #: Which phone this pair belongs to (task 33a): "any" (default) or a phone's hardware serial, as shown by
     #: `androsync devices`. A pair bound to a phone only syncs with that phone.
     device: str = "any"
@@ -266,6 +272,17 @@ def load_config(path: Path | None = None) -> Config:
 
         pair_device = str(merged.get("device", "any")).strip() or "any"
 
+        auto = bool(merged.get("auto", False))
+        try:
+            auto_delay_s = int(merged.get("auto_delay_s", 10))
+            auto_interval_s = int(merged.get("auto_interval_s", 300))
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(f"pair {name}: 'auto_delay_s' and 'auto_interval_s' must be whole numbers") from exc
+        if not 1 <= auto_delay_s <= 3600:
+            raise ConfigError(f"pair {name}: 'auto_delay_s' must be between 1 and 3600 seconds")
+        if not 60 <= auto_interval_s <= 86400:
+            raise ConfigError(f"pair {name}: 'auto_interval_s' must be between 60 and 86400 seconds")
+
         enabled = bool(merged.get("enabled", True))
 
         undo_raw = dict(UNDO_DEFAULTS)
@@ -315,6 +332,9 @@ def load_config(path: Path | None = None) -> Config:
                 conflict_copies=conflict_copies,
                 transport=transport,
                 device=pair_device,
+                auto=auto,
+                auto_delay_s=auto_delay_s,
+                auto_interval_s=auto_interval_s,
                 enabled=enabled,
                 undo_keep_runs=undo_keep_runs,
                 undo_max_total_mb=undo_max_total_mb,

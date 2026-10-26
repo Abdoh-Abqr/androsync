@@ -174,6 +174,21 @@ fun PairEditorScreen(
                 }
             }
 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Sync automatically")
+                    Text(
+                        "When files change. Only after you have synced this pair once by hand; a big change still waits for your OK.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(checked = uiState.auto, onCheckedChange = viewModel::onAutoChange)
+            }
+
             Text("Conflict policy", style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ConflictChip(null, "newest wins", uiState.conflict, viewModel::onConflictChange)

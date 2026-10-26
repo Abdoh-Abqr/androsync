@@ -397,7 +397,8 @@ private fun PairCard(
             Text(
                 directionArrowText(pair.direction) +
                     (if (pair.transport == "agent") "  ·  via this app" else "") +
-                    (if (phoneLabel != null) "  ·  $phoneLabel" else ""),
+                    (if (phoneLabel != null) "  ·  $phoneLabel" else "") +
+                    autoBadge(pair),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
@@ -791,3 +792,11 @@ private fun UndoConfirmDialog(pairName: String, onConfirm: (pause: Boolean) -> U
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
+
+/** "  ·  auto" (or "auto paused: why") on a pair card whose automatic sync is on (Phase T2). */
+internal fun autoBadge(pair: PairDto): String = when {
+    !pair.auto -> ""
+    pair.autoState?.state == "paused" -> "  ·  auto paused: ${pair.autoState.reason ?: "see the laptop"}"
+    else -> "  ·  auto"
+}
+

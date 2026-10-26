@@ -183,3 +183,14 @@ def test_suggest_transport_follows_what_is_available_when_there_is_no_saved_defa
     assert suggest_transport(None, {"device": None, "devices": [{"serial": "x", "state": "unauthorized"}], "agent": "absent"}) == "adb"
     assert suggest_transport(None, None) == "adb"
     assert suggest_transport("nonsense", {"agent": "connected"}) == "agent"
+
+
+def test_auto_label_says_what_automatic_sync_is_doing():
+    from androsync.gui.logic import auto_label
+
+    assert auto_label({"name": "a"}) == "off"
+    assert auto_label({"name": "a", "auto": False}) == "off"
+    assert auto_label({"name": "a", "auto": True, "auto_state": {"state": "watching"}}) == "on"
+    assert auto_label({"name": "a", "auto": True, "auto_state": {"state": "waiting"}}) == "waiting"
+    assert auto_label({"name": "a", "auto": True, "auto_state": {"state": "paused", "reason": "x"}}) == "paused"
+    assert auto_label({"name": "a", "auto": True}) == "on"  # an older daemon sends no state

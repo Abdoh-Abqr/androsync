@@ -72,6 +72,16 @@ data class PairDto(
     @SerialName("last_result") val lastResult: String? = null,
     /** "any" or the id of the phone this pair belongs to (task 33a). */
     val device: String = "any",
+    /** Syncs by itself when files change (Phase T2). */
+    val auto: Boolean = false,
+    @SerialName("auto_state") val autoState: AutoStateDto? = null,
+)
+
+/** What automatic sync is doing for a pair: "off", "watching", "waiting" or "paused" (with the [reason]). */
+@Serializable
+data class AutoStateDto(
+    val state: String = "off",
+    val reason: String? = null,
 )
 
 /**
@@ -205,6 +215,8 @@ data class PairRequest(
     val transport: String? = null,
     /** Omitted for any phone; otherwise the id of the phone the pair belongs to (task 33a). */
     val device: String? = null,
+    /** Sent only when on; omitted means off (Phase T2). */
+    val auto: Boolean? = null,
 )
 
 /** One entry of `GET /v1/browse` -> {..., entries: [{name, is_dir, size, hidden}], ...}. */

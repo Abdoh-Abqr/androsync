@@ -72,6 +72,8 @@ data class PairEditorUiState(
     val transport: String = "adb",
     /** "any" or the id of the phone this pair belongs to (task 33a). Carried through like [transport]. */
     val device: String = "any",
+    /** Sync by itself when files change (Phase T2). */
+    val auto: Boolean = false,
     val saving: Boolean = false,
     val formError: String? = null,
     val browse: BrowseUiState? = null,
@@ -156,6 +158,7 @@ class PairEditorViewModel(
                             enabled = pair.enabled,
                             transport = pair.transport,
                             device = pair.device,
+                            auto = pair.auto,
                             originalLocal = pair.local,
                             originalRemote = pair.remote,
                         )
@@ -200,6 +203,8 @@ class PairEditorViewModel(
 
     fun onDeviceChange(value: String) = _uiState.update { it.copy(device = value) }
 
+    fun onAutoChange(value: Boolean) = _uiState.update { it.copy(auto = value) }
+
     fun save() {
         val state = _uiState.value
         val error = validatePairForm(state.name, state.local, state.remote)
@@ -231,6 +236,7 @@ class PairEditorViewModel(
                 enabled = state.enabled,
                 transport = state.transport.takeIf { it != "adb" },
                 device = state.device.takeIf { it != ANY_PHONE },
+                auto = state.auto.takeIf { it },
             )
             try {
                 if (state.isNew) {

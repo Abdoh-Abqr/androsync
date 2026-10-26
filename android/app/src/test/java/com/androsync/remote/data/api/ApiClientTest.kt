@@ -639,4 +639,20 @@ class ApiClientTest {
         assertEquals("POST", request.method)
         assertEquals("/v1/token/rotate", request.path)
     }
+
+    @Test
+    fun `pairs parse the automatic sync flag and state, and a request sends auto only when on`() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"name":"a","local":"/x","remote":"/sdcard/a","direction":"two-way","conflict":"newest-wins","auto":true,"auto_state":{"state":"paused","reason":"needs your OK"}}]""",
+            ),
+        )
+        val pair = client.pairs().single()
+        assertEquals(true, pair.auto)
+        assertEquals("paused", pair.autoState?.state)
+        server.takeRequest() // the GET /v1/pairs above
+        server.enqueue(MockResponse().setResponseCode(201).setBody("[]"))
+        client.createPair(PairRequest(name = "b", local = "/x", remote = "/sdcard/b", direction = "two-way", auto = true))
+        assertTrue(server.takeRequest().body.readUtf8().contains(""""auto":true"""))
+    }
 }

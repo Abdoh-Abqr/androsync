@@ -50,6 +50,12 @@ millisecond times stick).
 | `exists` | `root` | `{"exists": bool}` (a folder) |
 | `ls` | `path` | `{"entries": [{"name", "is_dir", "size"}]}` (children only) |
 
+## Telling the laptop about changes (optional)
+
+`POST /v1/agent/event` with `{"root": "/sdcard/DCIM"}` says files changed under that folder. The laptop marks the agent pairs
+whose phone folder covers it, and automatic sync ([auto-sync.md](auto-sync.md)) syncs them once the changes settle. Answer is
+`200 {"ok": true}`. An agent that never sends it still works: automatic sync checks the phone every `auto_interval_s`.
+
 ## Errors
 
 Answer `{"ok": false, "error": "..."}`; the laptop shows `"<op> failed on the phone: <error>"`. Put the real cause

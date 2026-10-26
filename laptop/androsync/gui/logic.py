@@ -104,6 +104,15 @@ def suggest_transport(config_default: str | None, ping: dict | None) -> str:
     return "adb"
 
 
+def auto_label(pair: dict) -> str:
+    """The Pairs table's "Auto" cell (Phase T2): empty when off, else what automatic sync is doing."""
+    if not pair.get("auto"):
+        return "off"
+    info = pair.get("auto_state") or {}
+    state = info.get("state", "watching")
+    return "paused" if state == "paused" else ("waiting" if state == "waiting" else "on")
+
+
 def transport_label(pair: dict) -> str:
     """How the pair reaches the phone, for the Pairs table (task 37d): ``adb`` or ``phone app``."""
     return "phone app" if pair.get("transport") == "agent" else "adb"

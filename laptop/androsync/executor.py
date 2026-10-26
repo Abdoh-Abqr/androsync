@@ -565,7 +565,8 @@ def _run_pair(
     roots = {Side.LOCAL: local_root, Side.REMOTE: remote_root}
 
     journal: undo.RunJournal | None = None
-    if pair.undo_enabled:
+    # A run with nothing to do needs no undo entry (an automatic check every few minutes must not fill the undo list).
+    if pair.undo_enabled and (actions or not pair.auto):
         journal = undo.RunJournal.start(
             key, snapshot_before_run, {"max_file_mb": pair.undo_max_file_mb}, kind="sync", now=run_now
         )

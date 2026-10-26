@@ -171,6 +171,7 @@ class PairEditorDialog(tk.Toplevel):
         self._direction_var = tk.StringVar(value=existing.direction if existing else "two-way")
         self._conflict_var = tk.StringVar(value=existing.conflict if existing else "newest-wins")
         self._transport_var = tk.StringVar(value=existing.transport if existing else default_transport)
+        self._auto_var = tk.BooleanVar(value=existing.auto if existing else False)
         self._make_default_var = tk.BooleanVar(value=False)
         self._propagate_deletes_var = tk.BooleanVar(value=existing.propagate_deletes if existing else True)
 
@@ -212,6 +213,13 @@ class PairEditorDialog(tk.Toplevel):
             ttk.Checkbutton(
                 self, text="Use this for new pairs from now on", variable=self._make_default_var
             ).grid(row=row, column=1, columnspan=2, sticky="w", padx=8)
+
+        row += 1
+        ttk.Checkbutton(
+            self,
+            text="Sync automatically when files change (after you have synced this pair once by hand)",
+            variable=self._auto_var,
+        ).grid(row=row, column=0, columnspan=3, sticky="w", padx=8, pady=4)
 
         row += 1
         ttk.Label(self, text="Conflict policy").grid(row=row, column=0, sticky="w", padx=8, pady=4)
@@ -271,6 +279,7 @@ class PairEditorDialog(tk.Toplevel):
             "direction": self._direction_var.get(),
             "conflict": self._conflict_var.get(),
             "transport": self._transport_var.get(),
+            "auto": self._auto_var.get(),
             "propagate_deletes": self._propagate_deletes_var.get(),
         }
         self.destroy()

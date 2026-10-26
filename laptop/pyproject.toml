@@ -18,6 +18,9 @@ dependencies = [
 dev = [
     "pytest",
 ]
+watch = [
+    "watchdog",
+]
 qr = [
     "qrcode",
 ]

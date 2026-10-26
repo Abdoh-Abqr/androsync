@@ -183,6 +183,7 @@ One line each, with the full detail:
 
 - **[`PLAN.md`](PLAN.md)** - architecture, the config format, the full HTTP API.
 - **[`docs/install.md`](docs/install.md)** - installing the laptop program, with the status for Linux, macOS and Windows.
+- **[`docs/auto-sync.md`](docs/auto-sync.md)** - sync by itself when files change: how to turn it on, what it never does.
 - **[`docs/support.md`](docs/support.md)** - something wrong? how to make a log file (nothing private in it) and report it.
 - **[`docs/token.md`](docs/token.md)** - what the token is, where it is stored, how to make a new one.
 - **[`docs/agent-mode.md`](docs/agent-mode.md)** - sync without USB debugging through the app itself: comparison with ADB and Syncthing, the permission, why it is not on Google Play, setup.

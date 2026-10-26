@@ -595,3 +595,14 @@ def test_undo_of_an_agent_pair_explains_why_it_cannot_run_here(tmp_path, capsys)
     )
     assert cli.main(["--config", str(config_path), "undo", "viaagent"]) == 2
     assert "phone app's agent" in capsys.readouterr().err
+
+
+def test_add_and_edit_pair_can_turn_automatic_sync_on_and_off(tmp_path):
+    config_path = write_config(tmp_path, {"device": "auto", "pairs": []})
+    base = ["--config", str(config_path)]
+    assert cli.main(base + ["add-pair", "--name", "n", "--local", str(tmp_path / "x"), "--remote", "/sdcard/X", "--direction", "two-way", "--auto"]) == 0
+    assert yaml.safe_load(config_path.read_text())["pairs"][0]["auto"] is True
+    assert cli.main(base + ["edit-pair", "n", "--no-auto"]) == 0
+    assert yaml.safe_load(config_path.read_text())["pairs"][0]["auto"] is False
+    assert cli.main(base + ["edit-pair", "n", "--auto"]) == 0
+    assert yaml.safe_load(config_path.read_text())["pairs"][0]["auto"] is True

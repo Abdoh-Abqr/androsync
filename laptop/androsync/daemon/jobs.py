@@ -121,6 +121,8 @@ class Job:
     undo_force: bool = False
     #: The user has confirmed a plan the safety check would otherwise stop (task 36d, issue #9).
     confirm_large: bool = False
+    #: "manual" (a person asked) or "auto" (automatic sync noticed a change, Phase T2).
+    origin: str = "manual"
     created: float = 0.0
     started: float | None = None
     finished: float | None = None
@@ -207,8 +209,15 @@ class JobRunner:
         self._jobs: dict[str, Job] = {}
         self._order: list[str] = []  # oldest -> newest job id
         self._current_id: str | None = None
+        self._listeners: list[Callable[[Job], None]] = []
 
-    def submit(self, pairs: list[str] | None = None, dry_run: bool = False, confirm_large: bool = False) -> Job:
+    def submit(
+        self,
+        pairs: list[str] | None = None,
+        dry_run: bool = False,
+        confirm_large: bool = False,
+        origin: str = "manual",
+    ) -> Job:
         """Start a job syncing ``pairs`` (``None`` = every configured pair).
 
         Raises ``JobBusy`` if a job is already queued or running, or
@@ -229,7 +238,12 @@ class JobRunner:
                 selected = list(pairs)
 
             job = Job(
-                id=uuid4().hex[:8], pairs=selected, dry_run=dry_run, confirm_large=confirm_large, created=time.time()
+                id=uuid4().hex[:8],
+                pairs=selected,
+                dry_run=dry_run,
+                confirm_large=confirm_large,
+                origin=origin,
+                created=time.time(),
             )
             return self._register_and_start(job)
 
@@ -374,7 +388,27 @@ class JobRunner:
             adb_errors=adb_errors,
         )
 
+    def add_listener(self, listener: Callable[[Job], None]) -> None:
+        """Call ``listener(job)`` whenever a job has finished (any outcome). Used by automatic sync (Phase T2)."""
+        self._listeners.append(listener)
+
     def _run(self, job: Job) -> None:
+        try:
+            self._run_inner(job)
+        finally:
+            if job.origin == "auto" and job.state == "done" and _changed_nothing(job):
+                # A quiet automatic check must not push real syncs out of the list of recent jobs.
+                with self._lock:
+                    self._jobs.pop(job.id, None)
+                    if job.id in self._order:
+                        self._order.remove(job.id)
+            for listener in list(self._listeners):
+                try:
+                    listener(job)
+                except Exception:  # noqa: BLE001 - a listener must never break the runner
+                    _LOG.warning("androsync: a job listener failed", exc_info=True)
+
+    def _run_inner(self, job: Job) -> None:
         job.started = time.time()
         if job.state == "queued":  # a Stop pressed before the thread started leaves it at "cancelling"
             job.state = "running"
@@ -541,6 +575,19 @@ class JobRunner:
             job.state = "done"
 
 
+def _changed_nothing(job: Job) -> bool:
+    """True when every pair of a finished sync job had nothing to do (no copies, deletes, conflicts or errors)."""
+    if not job.summaries:
+        return False
+    for s in job.summaries.values():
+        if (
+            s.copied_to_local or s.copied_to_remote or s.deleted_local or s.deleted_remote
+            or s.conflicts or s.asks or s.errors or s.needs_confirmation
+        ):
+            return False
+    return True
+
+
 def current_job_dict(job: Job | None) -> dict | None:
     """Small summary of the running job for ``GET /v1/ping`` (task 36b, issue #7), or ``None`` when idle.
 
@@ -555,6 +602,7 @@ def current_job_dict(job: Job | None) -> dict | None:
         "id": job.id,
         "pairs": list(job.pairs),
         "kind": job.kind,
+        "origin": job.origin,
         "state": job.state,
         "dry_run": job.dry_run,
         "started": job.started,
@@ -584,8 +632,11 @@ def job_to_dict(job: Job) -> dict:
     }
 
 
-def pairs_status(config: Config) -> list[dict]:
-    """Return one status dict per configured pair, for ``GET /v1/pairs``."""
+def pairs_status(config: Config, auto_status: Callable[[str], dict] | None = None) -> list[dict]:
+    """Return one status dict per configured pair, for ``GET /v1/pairs``.
+
+    ``auto_status`` (automatic sync, Phase T2) names a pair's automation state for the ``auto_state`` field.
+    """
     result = []
     for pair in config.pairs:
         meta = state.latest_meta(pair.name)
@@ -598,6 +649,8 @@ def pairs_status(config: Config) -> list[dict]:
                 "conflict": pair.conflict,
                 "transport": pair.transport,
                 "device": pair.device,
+                "auto": pair.auto,
+                "auto_state": auto_status(pair.name) if auto_status is not None else {"state": "off", "reason": None},
                 "enabled": pair.enabled,
                 "last_run": meta.get("last_run"),
                 "last_result": meta.get("last_result"),

@@ -6,10 +6,10 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable
 
-from androsync.gui.logic import format_pair_row, transport_label
+from androsync.gui.logic import auto_label, format_pair_row, transport_label
 
-_COLUMNS = ("direction", "via", "last_run", "last_result", "enabled")
-_HEADINGS = {"direction": "Direction", "via": "Via", "last_run": "Last run", "last_result": "Last result", "enabled": "Enabled"}
+_COLUMNS = ("direction", "via", "auto", "last_run", "last_result", "enabled")
+_HEADINGS = {"direction": "Direction", "via": "Via", "auto": "Auto", "last_run": "Last run", "last_result": "Last result", "enabled": "Enabled"}
 
 
 class PairsPanel(ttk.LabelFrame):
@@ -76,7 +76,7 @@ class PairsPanel(ttk.LabelFrame):
                 "end",
                 iid=pair["name"],
                 text=name,
-                values=(direction, transport_label(pair), last_run, last_result, enabled),
+                values=(direction, transport_label(pair), auto_label(pair), last_run, last_result, enabled),
                 tags=tags,
             )
         if selected is not None and self.tree.exists(selected):

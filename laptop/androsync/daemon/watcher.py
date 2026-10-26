@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Callable, Protocol
 
 from androsync.config import Config, ConfigError, secure_file
+from androsync.daemon.auto import AutoSync
 from androsync.daemon.jobs import JobBusy, JobRunner
 from androsync.daemon.server import ApiServer
 from androsync.model import Side
@@ -338,6 +339,18 @@ class Daemon:
         serial = resolve_pair_device(device, config.device, wifi_target=config.wifi_target)
         return LocalDirTransport(Side.LOCAL), AdbTransport(Adb(serial=serial))
 
+    def _auto_phone_available(self, pair) -> bool:  # noqa: ANN001 - PairConfig
+        """Whether the phone a pair needs can be reached now; an absent phone is waited for, never counted as a failure."""
+        if pair.transport == "agent":
+            return self.agent_broker.connected()
+        watcher = self._watcher
+        ready = [s for s, st in (dict(watcher.devices).items() if watcher is not None else []) if st == "device"]
+        if not ready:
+            return False
+        if pair.device in ("", "any"):
+            return True
+        return any(self._hardware_serials.get(s, s) == pair.device or s == pair.device for s in ready)
+
     def _default_watcher_factory(self, *, on_connect: ConnectFn, on_disconnect: ConnectFn) -> DeviceWatcher:
         return DeviceWatcher(on_connect=on_connect, on_disconnect=on_disconnect)
 
@@ -361,6 +374,10 @@ class Daemon:
         self._runner = JobRunner(
             self._config_loader, self.transport_factory, self.agent_broker, self._default_device_transport_factory
         )
+        # Pairs with `auto: true` sync by themselves when files change (Phase T2).
+        self._auto = AutoSync(
+            self._config_loader, self._runner, phone_available=self._auto_phone_available, notify=self.notify
+        )
         self._server = ApiServer(
             self._runner,
             self._config_loader,
@@ -371,8 +388,10 @@ class Daemon:
             device_info=self.device_info,
             config_path=self._config_path,
             agent=self.agent_broker,
+            auto=self._auto,
         )
         self._server.start()
+        self._auto.start()
         _LOG.info("androsync: HTTP API listening on %s", self._server.bound_addresses)
         write_pid_file()
         self._retry_missing_binds(config.service.listen, config.service.port)
@@ -464,6 +483,9 @@ class Daemon:
             reconnector.join(timeout=5.0)
         self._wifi_reconnector = None
         self._extra_reconnectors = []
+        auto = getattr(self, "_auto", None)
+        if auto is not None:
+            auto.stop()
         if self._watcher is not None:
             self._watcher.stop()
             self._watcher.join(timeout=5.0)

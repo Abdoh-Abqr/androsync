@@ -3,6 +3,19 @@
 All notable changes to androsync are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- **Automatic sync**: a pair can sync by itself a few seconds after files change (`auto: true`). It never runs the first
+  sync, never confirms a big change, pauses after three failures, and leaves no trace when nothing changed. See
+  `docs/auto-sync.md`.
+- **Report a problem**: `androsync support-bundle`, a window dialog and an app screen make a redacted log file; a GitHub
+  issue form and `docs/support.md`.
+- `androsync service new-token` and a New token button in the window; the config file is now readable by you only.
+
+### Fixed
+- A rare race where a failed job showed as finished before each pair's failure was saved.
+
 ## [0.2.0] - 2026-10-25
 
 Safer, stoppable syncs; a guided phone setup; and sync without USB debugging.

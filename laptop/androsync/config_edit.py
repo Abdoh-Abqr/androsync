@@ -156,7 +156,7 @@ def add_pair(raw: dict[str, Any], pair_dict: dict[str, Any]) -> dict[str, Any]:
 #: default". Every OTHER key a pair has (versioning, conflict_copies, undo, safety, transfer, ...) is not on those forms
 #: and must survive an edit instead of being silently erased.
 FORM_KEYS = frozenset(
-    {"name", "local", "remote", "direction", "conflict", "propagate_deletes", "ignore", "enabled", "transport", "device"}
+    {"name", "local", "remote", "direction", "conflict", "propagate_deletes", "ignore", "enabled", "transport", "device", "auto"}
 )
 
 

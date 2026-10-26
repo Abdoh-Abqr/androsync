@@ -216,6 +216,8 @@ def cmd_add_pair(args: argparse.Namespace) -> int:
         pair_dict["conflict"] = conflict
     if getattr(args, "transport", None) and args.transport != "adb":
         pair_dict["transport"] = args.transport
+    if getattr(args, "auto", None):
+        pair_dict["auto"] = True
     if propagate_deletes is not None and propagate_deletes is not True:
         pair_dict["propagate_deletes"] = propagate_deletes
 
@@ -260,6 +262,8 @@ def cmd_edit_pair(args: argparse.Namespace) -> int:
         pair_dict["conflict"] = args.conflict
     if getattr(args, "transport", None):
         pair_dict["transport"] = args.transport
+    if getattr(args, "auto", None) is not None:
+        pair_dict["auto"] = bool(args.auto)
     if args.propagate_deletes is not None:
         pair_dict["propagate_deletes"] = args.propagate_deletes
     if args.enabled is not None:
@@ -373,6 +377,7 @@ def add_pair_commands(subparsers, common: argparse.ArgumentParser) -> None:
     add_pair_p.add_argument(
         "--transport", choices=TRANSPORT_MODES, help="How to reach the phone: adb (default) or agent (the phone app, no debugging)"
     )
+    add_pair_p.add_argument("--auto", action="store_true", help="Sync by itself when files change (after a first manual sync)")
     add_pair_p.add_argument(
         "--propagate-deletes",
         action=argparse.BooleanOptionalAction,
@@ -391,6 +396,9 @@ def add_pair_commands(subparsers, common: argparse.ArgumentParser) -> None:
     edit_pair_p.add_argument("--direction", choices=DIRECTIONS, help="New sync direction")
     edit_pair_p.add_argument("--conflict", choices=CONFLICT_POLICIES, help="New conflict policy")
     edit_pair_p.add_argument("--transport", choices=TRANSPORT_MODES, help="New way to reach the phone: adb or agent")
+    edit_pair_p.add_argument(
+        "--auto", action=argparse.BooleanOptionalAction, default=None, help="Sync by itself when files change (--no-auto turns it off)"
+    )
     edit_pair_p.add_argument(
         "--propagate-deletes", action=argparse.BooleanOptionalAction, default=None, help="New propagate_deletes"
     )
