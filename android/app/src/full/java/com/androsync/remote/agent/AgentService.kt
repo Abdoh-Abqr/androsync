@@ -90,13 +90,19 @@ class AgentService : Service() {
                 delay(RETRY_MS)
                 continue
             }
-            val client = AgentClient(outcome.result.baseUrl, token, agentId = AgentState.agentId(applicationContext))
+            val client = AgentClient(
+                outcome.result.baseUrl,
+                token,
+                agentId = AgentState.agentId(applicationContext),
+                statusQuery = { PhoneState.query(networkKind(), isCharging()) },
+            )
             val loop = AgentLoop(
                 client = client,
                 ops = AgentOps(onChanged = ::scanMedia),
                 onStatus = { show(describe(it)) },
                 onBusy = ::setBusy,
                 maxConsecutiveFailures = 3,
+                shouldPause = { PhoneState.pauseReason(networkKind(), AgentState.pauseOnMobile(applicationContext)) },
             )
             try {
                 loop.run()
@@ -146,6 +152,23 @@ class AgentService : Service() {
         } else {
             wakeLock?.takeIf { it.isHeld }?.release()
         }
+    }
+
+    /** `wifi`, `mobile` or `none`: what carries the phone's traffic right now. */
+    private fun networkKind(): String {
+        val manager = getSystemService(android.net.ConnectivityManager::class.java)
+        val caps = manager.getNetworkCapabilities(manager.activeNetwork) ?: return "none"
+        return when {
+            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) ||
+                caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> "wifi"
+            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "mobile"
+            else -> "none"
+        }
+    }
+
+    private fun isCharging(): Boolean {
+        val battery = registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        return (battery?.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
     }
 
     /** Let the gallery and music apps see (or forget) what the laptop wrote or deleted. */

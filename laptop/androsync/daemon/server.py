@@ -36,6 +36,7 @@ from androsync.daemon.jobs import JobBusy, JobRunner, current_job_dict, job_to_d
 from androsync.executor import run_pair
 from androsync.transport.agent import POLL_SECONDS, AgentBroker, AgentBusy, AgentCancelled, AgentTransport
 from androsync.model import Side
+from androsync.throttle import Throttle
 from androsync.transport.local import LocalDirTransport
 from androsync.undo import UndoError, list_runs_all
 
@@ -272,7 +273,9 @@ class _Handler(BaseHTTPRequestHandler):
             wait = float((parse_qs(query).get("wait") or [POLL_SECONDS])[0])
         except ValueError:
             return self._send_json(400, {"error": "wait must be a number"})
-        agent_id = (parse_qs(query).get("agent") or [None])[0]
+        params = parse_qs(query)
+        agent_id = (params.get("agent") or [None])[0]
+        self.api.agent.report_state((params.get("net") or [None])[0], (params.get("battery") or [None])[0])
         try:
             op = self.api.agent.next_op(max(0.0, min(wait, POLL_SECONDS)), agent_id)
         except AgentBusy:
@@ -298,6 +301,14 @@ class _Handler(BaseHTTPRequestHandler):
             return self._send_json(410, {"error": "operation was cancelled"})
         return self._send_json(200, {"ok": True})
 
+    def _throttle(self) -> Throttle:
+        """The speed limit for file bodies, from ``service.bandwidth_kb_s`` in the config (0 = none)."""
+        try:
+            kb_s = self.api._config_loader().service.bandwidth_kb_s
+        except Exception:  # noqa: BLE001 - a config that cannot be read must not stop a transfer
+            kb_s = 0
+        return Throttle(kb_s * 1024)
+
     def _h_agent_blob_get(self, match: re.Match, query: str) -> int:
         op, error = self._agent_op(match)
         if op is None:
@@ -310,13 +321,15 @@ class _Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/octet-stream")
             self.send_header("Content-Length", str(size))
             self.end_headers()
+            throttle = self._throttle()
             with open(op.upload, "rb") as handle:
                 while True:
-                    chunk = handle.read(_BLOB_CHUNK)
+                    chunk = handle.read(throttle.chunk_size())
                     if not chunk:
                         break
                     self.wfile.write(chunk)
                     self.api.agent.touch()
+                    throttle.wait(len(chunk))
         except (BrokenPipeError, ConnectionResetError) as exc:
             raise _ClientGone from exc
         return 200
@@ -333,14 +346,16 @@ class _Handler(BaseHTTPRequestHandler):
         expected = int(header)
         received = 0
         try:
+            throttle = self._throttle()
             with open(op.download, "wb") as handle:
                 while received < expected:
-                    chunk = self.rfile.read(min(_BLOB_CHUNK, expected - received))
+                    chunk = self.rfile.read(min(throttle.chunk_size(), expected - received))
                     if not chunk:
                         break
                     handle.write(chunk)
                     received += len(chunk)
                     self.api.agent.touch()
+                    throttle.wait(len(chunk))
         except OSError as exc:
             return self._send_json(500, {"error": f"could not write the file: {exc}"})
         if received != expected:

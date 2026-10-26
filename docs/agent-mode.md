@@ -71,6 +71,12 @@ on `127.0.0.1` and its Tailscale address, and the app reaches it through the Tai
    to `agent`. For a new pair use `androsync add-pair ... --transport agent`.
 4. Press **Sync** in the window or in the app. Preview and Undo work as usual.
 
+## Speed limit and pause on mobile data
+
+`service: bandwidth_kb_s: 300` in the laptop's `config.yaml` slows the files moved through the app to about 300 KB/s (0 = no limit;
+adb transfers cannot be limited). In the app, **Pause on mobile data** (Settings, agent mode) stops the agent while the phone uses
+mobile data. The agent also tells the laptop whether the phone is on Wi-Fi and charging, which [automatic sync](auto-sync.md) can use.
+
 ## Limits
 
 - The agent runs only while the switch is on. It does not start again by itself after the phone restarts: open the

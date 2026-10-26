@@ -12,6 +12,9 @@ sealed class AgentStatus {
     data object Connected : AgentStatus()
     data class Working(val operation: String) : AgentStatus()
     data class Reconnecting(val reason: String) : AgentStatus()
+
+    /** Held back on purpose, for example "on mobile data" (the user's setting). */
+    data class Paused(val reason: String) : AgentStatus()
 }
 
 /**
@@ -28,6 +31,8 @@ class AgentLoop(
     private val sleep: suspend (Long) -> Unit = { delay(it) },
     /** After this many failed polls in a row [run] returns, so the caller can look for the laptop again. */
     private val maxConsecutiveFailures: Int = Int.MAX_VALUE,
+    /** A reason to stay quiet right now (null = work). Checked before every poll. */
+    private val shouldPause: () -> String? = { null },
 ) {
     /** Runs until cancelled, or until [maxConsecutiveFailures] polls failed in a row (then returns). */
     suspend fun run() {
@@ -36,6 +41,12 @@ class AgentLoop(
         onStatus(AgentStatus.Starting)
         while (true) {
             coroutineContext.ensureActive()
+            val pauseReason = shouldPause()
+            if (pauseReason != null) {
+                onStatus(AgentStatus.Paused(pauseReason))
+                sleep(PAUSE_CHECK_MS)
+                continue
+            }
             try {
                 val op = client.next()
                 backoffMs = FIRST_BACKOFF_MS
@@ -86,5 +97,6 @@ class AgentLoop(
     companion object {
         const val FIRST_BACKOFF_MS = 2_000L
         const val MAX_BACKOFF_MS = 30_000L
+        const val PAUSE_CHECK_MS = 10_000L
     }
 }

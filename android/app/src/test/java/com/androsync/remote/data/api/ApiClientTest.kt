@@ -655,4 +655,20 @@ class ApiClientTest {
         client.createPair(PairRequest(name = "b", local = "/x", remote = "/sdcard/b", direction = "two-way", auto = true))
         assertTrue(server.takeRequest().body.readUtf8().contains(""""auto":true"""))
     }
+
+    @Test
+    fun `pairs parse run conditions, and a request sends them only when set`() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"name":"a","local":"/x","remote":"/sdcard/a","direction":"two-way","conflict":"newest-wins","auto":true,"run_conditions":{"wifi_only":true,"charging_only":false,"schedule":"22:00-07:00"}}]""",
+            ),
+        )
+        val conditions = client.pairs().single().runConditions
+        assertEquals(true, conditions.wifiOnly)
+        assertEquals("22:00-07:00", conditions.schedule)
+        server.takeRequest()
+        server.enqueue(MockResponse().setResponseCode(201).setBody("[]"))
+        client.createPair(PairRequest(name = "b", local = "/x", remote = "/sdcard/b", direction = "two-way", runConditions = RunConditionsDto(wifiOnly = true)))
+        assertTrue(server.takeRequest().body.readUtf8().contains(""""wifi_only":true"""))
+    }
 }

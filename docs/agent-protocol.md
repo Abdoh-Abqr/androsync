@@ -10,6 +10,9 @@ All requests carry `Authorization: Bearer <token>`, like every other route.
 
 ## The loop the app runs
 
+(`GET /v1/agent/next` may carry `&agent=<id>`, `&net=wifi|mobile|none` and `&battery=charging|discharging`. The laptop remembers the
+last two for automatic sync's run conditions and refuses a second agent id while another agent is connected.)
+
 1. `GET /v1/agent/next` (optional `?wait=<seconds>`, at most 25). The laptop holds the request until work exists.
    - `204`, no body: nothing to do. Ask again at once.
    - `200`, JSON: one operation, see below.

@@ -27,6 +27,33 @@ Optional settings in `config.yaml` under the pair: `auto_delay_s` (seconds to wa
   undo entry.
 - **Undo works** on an automatic sync that changed something, like any other.
 
+## Only when it suits the phone: run conditions
+
+Per pair, for automatic syncs only (a sync you start yourself always runs):
+
+```yaml
+pairs:
+  - name: photos
+    auto: true
+    run_conditions:
+      wifi_only: true          # hold back on mobile data
+      charging_only: true      # hold back while the battery is discharging
+      schedule: "22:00-07:00"  # only inside these hours (may cross midnight)
+```
+
+In the app (edit the pair, with **Sync automatically** on) and in the window there are switches for Wi-Fi only and charging only;
+the time window is set in the config file or with `--schedule 22:00-07:00`. A held-back sync shows as `waiting` with the reason
+("waiting for Wi-Fi") and starts when the condition is met. If the phone's state cannot be read (an older app, an adb phone
+that does not answer) a condition never blocks: the aim is to avoid surprises, not to stop syncing.
+Command line: `--wifi-only`, `--charging-only`, `--schedule`.
+
+The agent app also has **Pause on mobile data** (Settings, agent mode): while on, the agent does not work at all on mobile data.
+
+## A speed limit (agent mode)
+
+`service: bandwidth_kb_s: 300` in `config.yaml` limits the speed of files moved through the phone app to about 300 KB/s (0 = no
+limit). It applies to the whole laptop, not per pair. adb transfers cannot be throttled.
+
 ## How changes are noticed
 
 - **Laptop folder:** with `watchdog` installed (`pipx inject androsync watchdog`, or `pip install 'androsync[watch]'`) changes

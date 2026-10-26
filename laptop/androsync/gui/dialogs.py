@@ -172,6 +172,13 @@ class PairEditorDialog(tk.Toplevel):
         self._conflict_var = tk.StringVar(value=existing.conflict if existing else "newest-wins")
         self._transport_var = tk.StringVar(value=existing.transport if existing else default_transport)
         self._auto_var = tk.BooleanVar(value=existing.auto if existing else False)
+        conditions = existing.run_conditions if existing else None
+        self._wifi_only_var = tk.BooleanVar(value=bool(conditions and conditions.wifi_only))
+        self._charging_only_var = tk.BooleanVar(value=bool(conditions and conditions.charging_only))
+        # The dialog has no field for the time window; keep one that is already set instead of dropping it on save.
+        self._schedule = (
+            f"{conditions.schedule[0]:%H:%M}-{conditions.schedule[1]:%H:%M}" if conditions and conditions.schedule else None
+        )
         self._make_default_var = tk.BooleanVar(value=False)
         self._propagate_deletes_var = tk.BooleanVar(value=existing.propagate_deletes if existing else True)
 
@@ -220,6 +227,14 @@ class PairEditorDialog(tk.Toplevel):
             text="Sync automatically when files change (after you have synced this pair once by hand)",
             variable=self._auto_var,
         ).grid(row=row, column=0, columnspan=3, sticky="w", padx=8, pady=4)
+        row += 1
+        ttk.Checkbutton(self, text="...only on Wi-Fi", variable=self._wifi_only_var).grid(
+            row=row, column=0, columnspan=3, sticky="w", padx=28
+        )
+        row += 1
+        ttk.Checkbutton(self, text="...only while the phone is charging", variable=self._charging_only_var).grid(
+            row=row, column=0, columnspan=3, sticky="w", padx=28
+        )
 
         row += 1
         ttk.Label(self, text="Conflict policy").grid(row=row, column=0, sticky="w", padx=8, pady=4)
@@ -237,6 +252,17 @@ class PairEditorDialog(tk.Toplevel):
         buttons.grid(row=row, column=0, columnspan=3, sticky="e", padx=8, pady=8)
         ttk.Button(buttons, text="Cancel", command=self.destroy).pack(side="right", padx=4)
         ttk.Button(buttons, text="Save", command=self._save).pack(side="right")
+
+    def _conditions_dict(self) -> dict:
+        """The run conditions the dialog sets; empty when none, so the saved pair stays tidy (Phase T3)."""
+        conditions = {}
+        if self._wifi_only_var.get():
+            conditions["wifi_only"] = True
+        if self._charging_only_var.get():
+            conditions["charging_only"] = True
+        if self._schedule:
+            conditions["schedule"] = self._schedule
+        return {"run_conditions": conditions} if conditions else {}
 
     def _browse_local(self) -> None:
         chosen = filedialog.askdirectory(parent=self, initialdir=self._local_var.get() or None)
@@ -280,6 +306,7 @@ class PairEditorDialog(tk.Toplevel):
             "conflict": self._conflict_var.get(),
             "transport": self._transport_var.get(),
             "auto": self._auto_var.get(),
+            **self._conditions_dict(),
             "propagate_deletes": self._propagate_deletes_var.get(),
         }
         self.destroy()

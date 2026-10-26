@@ -70,6 +70,9 @@ class ServiceConfig:
     #: `wifi_target` ends with `:5555` (the port that command fixes); resets on
     #: the phone's next reboot, same as the port itself.
     enable_tcpip_on_usb: bool = True
+    #: Speed limit for files moved through the phone app (agent mode), in kilobytes per second (KB/s); 0 = no limit (Phase T3).
+    #: adb transfers cannot be throttled.
+    bandwidth_kb_s: int = 0
 
 
 @dataclass
@@ -102,6 +105,8 @@ class PairConfig:
     auto_delay_s: int = 10
     #: How often a phone that cannot report changes (adb) is looked at, in seconds.
     auto_interval_s: int = 300
+    #: Wi-Fi only, charging only, a time window for automatic syncs (Phase T3). See :mod:`androsync.run_conditions`.
+    run_conditions: "RunConditions" = field(default_factory=lambda: _default_conditions())
     #: Which phone this pair belongs to (task 33a): "any" (default) or a phone's hardware serial, as shown by
     #: `androsync devices`. A pair bound to a phone only syncs with that phone.
     device: str = "any"
@@ -142,6 +147,12 @@ class Config:
     wifi_target: str | None = None
     #: The phones the user named, by hardware serial (`androsync devices` shows it). Optional.
     phones: dict[str, PhoneConfig] = field(default_factory=dict)
+
+
+def _default_conditions():
+    from androsync.run_conditions import RunConditions
+
+    return RunConditions()
 
 
 def secure_file(path: Path) -> bool:
@@ -272,6 +283,9 @@ def load_config(path: Path | None = None) -> Config:
 
         pair_device = str(merged.get("device", "any")).strip() or "any"
 
+        from androsync.run_conditions import parse as parse_conditions  # local: that module imports ConfigError from here
+
+        run_conditions = parse_conditions(merged.get("run_conditions"), name)
         auto = bool(merged.get("auto", False))
         try:
             auto_delay_s = int(merged.get("auto_delay_s", 10))
@@ -333,6 +347,7 @@ def load_config(path: Path | None = None) -> Config:
                 transport=transport,
                 device=pair_device,
                 auto=auto,
+                run_conditions=run_conditions,
                 auto_delay_s=auto_delay_s,
                 auto_interval_s=auto_interval_s,
                 enabled=enabled,

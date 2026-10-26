@@ -218,6 +218,7 @@ def cmd_add_pair(args: argparse.Namespace) -> int:
         pair_dict["transport"] = args.transport
     if getattr(args, "auto", None):
         pair_dict["auto"] = True
+    _apply_conditions(pair_dict, args)
     if propagate_deletes is not None and propagate_deletes is not True:
         pair_dict["propagate_deletes"] = propagate_deletes
 
@@ -264,6 +265,7 @@ def cmd_edit_pair(args: argparse.Namespace) -> int:
         pair_dict["transport"] = args.transport
     if getattr(args, "auto", None) is not None:
         pair_dict["auto"] = bool(args.auto)
+    _apply_conditions(pair_dict, args)
     if args.propagate_deletes is not None:
         pair_dict["propagate_deletes"] = args.propagate_deletes
     if args.enabled is not None:
@@ -364,6 +366,27 @@ def cmd_resolve(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _apply_conditions(pair_dict: dict, args: argparse.Namespace) -> None:
+    """--wifi-only / --charging-only / --schedule onto the pair's run_conditions (an empty result removes the key)."""
+    conditions = dict(pair_dict.get("run_conditions") or {})
+    for flag, key in (("wifi_only", "wifi_only"), ("charging_only", "charging_only")):
+        value = getattr(args, flag, None)
+        if value is True:
+            conditions[key] = True
+        elif value is False:
+            conditions.pop(key, None)
+    schedule = getattr(args, "schedule", None)
+    if schedule is not None:
+        if schedule == "":
+            conditions.pop("schedule", None)
+        else:
+            conditions["schedule"] = schedule
+    if conditions:
+        pair_dict["run_conditions"] = conditions
+    else:
+        pair_dict.pop("run_conditions", None)
+
+
 def add_pair_commands(subparsers, common: argparse.ArgumentParser) -> None:
     """Attach ``add-pair`` and ``resolve`` to ``subparsers``."""
     add_pair_p = subparsers.add_parser(
@@ -378,6 +401,9 @@ def add_pair_commands(subparsers, common: argparse.ArgumentParser) -> None:
         "--transport", choices=TRANSPORT_MODES, help="How to reach the phone: adb (default) or agent (the phone app, no debugging)"
     )
     add_pair_p.add_argument("--auto", action="store_true", help="Sync by itself when files change (after a first manual sync)")
+    add_pair_p.add_argument("--wifi-only", action="store_true", default=None, help="Automatic syncs only while the phone is on Wi-Fi")
+    add_pair_p.add_argument("--charging-only", action="store_true", default=None, help="Automatic syncs only while the phone charges")
+    add_pair_p.add_argument("--schedule", help="Automatic syncs only between these hours, like 22:00-07:00")
     add_pair_p.add_argument(
         "--propagate-deletes",
         action=argparse.BooleanOptionalAction,
@@ -399,6 +425,9 @@ def add_pair_commands(subparsers, common: argparse.ArgumentParser) -> None:
     edit_pair_p.add_argument(
         "--auto", action=argparse.BooleanOptionalAction, default=None, help="Sync by itself when files change (--no-auto turns it off)"
     )
+    edit_pair_p.add_argument("--wifi-only", action=argparse.BooleanOptionalAction, default=None, help="Automatic syncs only on Wi-Fi")
+    edit_pair_p.add_argument("--charging-only", action=argparse.BooleanOptionalAction, default=None, help="Automatic syncs only while charging")
+    edit_pair_p.add_argument("--schedule", help="Automatic syncs only between these hours (22:00-07:00); an empty value removes it")
     edit_pair_p.add_argument(
         "--propagate-deletes", action=argparse.BooleanOptionalAction, default=None, help="New propagate_deletes"
     )

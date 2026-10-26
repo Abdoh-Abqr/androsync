@@ -650,6 +650,15 @@ def pairs_status(config: Config, auto_status: Callable[[str], dict] | None = Non
                 "transport": pair.transport,
                 "device": pair.device,
                 "auto": pair.auto,
+                "run_conditions": {
+                    "wifi_only": pair.run_conditions.wifi_only,
+                    "charging_only": pair.run_conditions.charging_only,
+                    "schedule": (
+                        f"{pair.run_conditions.schedule[0]:%H:%M}-{pair.run_conditions.schedule[1]:%H:%M}"
+                        if pair.run_conditions.schedule
+                        else None
+                    ),
+                },
                 "auto_state": auto_status(pair.name) if auto_status is not None else {"state": "off", "reason": None},
                 "enabled": pair.enabled,
                 "last_run": meta.get("last_run"),

@@ -34,6 +34,7 @@ from typing import Callable, Protocol
 
 from androsync.config import Config, ConfigError, secure_file
 from androsync.daemon.auto import AutoSync
+from androsync.run_conditions import parse_battery, parse_route
 from androsync.daemon.jobs import JobBusy, JobRunner
 from androsync.daemon.server import ApiServer
 from androsync.model import Side
@@ -351,6 +352,42 @@ class Daemon:
             return True
         return any(self._hardware_serials.get(s, s) == pair.device or s == pair.device for s in ready)
 
+    def _auto_phone_state(self, pair) -> dict:  # noqa: ANN001 - PairConfig
+        """How the pair's phone is connected and powered, for run conditions: ``{"net": ..., "charging": ...}``.
+
+        The agent reports it itself; an adb phone is asked (``dumpsys battery`` and ``ip route get``). Unknown stays out
+        of the dict, and run conditions never block on what is not known.
+        """
+        if pair.transport == "agent":
+            return self.agent_broker.phone_state()
+        watcher = self._watcher
+        ready = [s for s, st in (dict(watcher.devices).items() if watcher is not None else []) if st == "device"]
+        if not ready:
+            return {}
+        serial = ready[0]
+        for candidate in ready:
+            if pair.device in ("", "any") or self._hardware_serials.get(candidate, candidate) == pair.device:
+                serial = candidate
+                break
+        state: dict = {}
+        battery = self._adb_text(serial, "dumpsys battery")
+        charging = parse_battery(battery) if battery else None
+        if charging is not None:
+            state["charging"] = charging
+        route = self._adb_text(serial, "ip route get 1.1.1.1")
+        net = parse_route(route) if route else None
+        if net is not None:
+            state["net"] = net
+        return state
+
+    @staticmethod
+    def _adb_text(serial: str, command: str) -> str:
+        try:
+            result = subprocess.run(["adb", "-s", serial, "shell", command], capture_output=True, text=True, timeout=8)
+        except Exception:  # noqa: BLE001 - a phone that does not answer simply has an unknown state
+            return ""
+        return result.stdout if result.returncode == 0 else ""
+
     def _default_watcher_factory(self, *, on_connect: ConnectFn, on_disconnect: ConnectFn) -> DeviceWatcher:
         return DeviceWatcher(on_connect=on_connect, on_disconnect=on_disconnect)
 
@@ -376,7 +413,11 @@ class Daemon:
         )
         # Pairs with `auto: true` sync by themselves when files change (Phase T2).
         self._auto = AutoSync(
-            self._config_loader, self._runner, phone_available=self._auto_phone_available, notify=self.notify
+            self._config_loader,
+            self._runner,
+            phone_available=self._auto_phone_available,
+            notify=self.notify,
+            phone_state=self._auto_phone_state,
         )
         self._server = ApiServer(
             self._runner,

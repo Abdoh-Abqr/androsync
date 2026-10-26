@@ -22,11 +22,13 @@ import os
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Callable
 
 from androsync import state
 from androsync.config import Config, PairConfig
 from androsync.daemon.jobs import Job, JobBusy, JobRunner
+from androsync.run_conditions import allowed
 
 _LOG = logging.getLogger(__name__)
 
@@ -131,6 +133,8 @@ class _PairAuto:
     paused: str | None = None
     next_phone_check: float | None = None
     job_id: str | None = None
+    #: Why a due sync is held back (run conditions), shown as the pair's waiting reason.
+    waiting_reason: str | None = None
 
 
 def default_first_run_done(pair: PairConfig) -> bool:
@@ -149,7 +153,11 @@ class AutoSync:
         notify: Callable[[str, str], None] = lambda title, body: None,
         watcher_factory: Callable[[str, Callable[[], None]], object] = make_watcher,
         first_run_done: Callable[[PairConfig], bool] = default_first_run_done,
+        phone_state: Callable[[PairConfig], dict] = lambda pair: {},
+        now_fn: Callable[[], datetime] = datetime.now,
     ) -> None:
+        self._phone_state = phone_state
+        self._now_fn = now_fn
         self._config_loader = config_loader
         self._runner = runner
         self._clock = clock
@@ -233,6 +241,12 @@ class AutoSync:
                     continue
                 if not self._first_run_done(pair) or not self._phone_available(pair):
                     continue
+                if pair.run_conditions.any:
+                    ok, why = allowed(pair.run_conditions, self._now_fn(), self._phone_state(pair))
+                    st.waiting_reason = None if ok else why
+                    if not ok:
+                        continue
+                st.waiting_reason = None
                 try:
                     job = self._runner.submit([pair.name], origin="auto")
                 except (JobBusy, KeyError):
@@ -285,7 +299,7 @@ class AutoSync:
         if st is not None and st.paused:
             return {"state": "paused", "reason": st.paused}
         if st is not None and st.last_change is not None:
-            return {"state": "waiting", "reason": None}
+            return {"state": "waiting", "reason": st.waiting_reason}
         return {"state": "watching", "reason": None}
 
     # -- watchers --------------------------------------------------------------------------------------------

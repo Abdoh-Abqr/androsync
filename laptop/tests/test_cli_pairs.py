@@ -606,3 +606,24 @@ def test_add_and_edit_pair_can_turn_automatic_sync_on_and_off(tmp_path):
     assert yaml.safe_load(config_path.read_text())["pairs"][0]["auto"] is False
     assert cli.main(base + ["edit-pair", "n", "--auto"]) == 0
     assert yaml.safe_load(config_path.read_text())["pairs"][0]["auto"] is True
+
+
+def test_run_conditions_can_be_set_changed_and_removed_from_the_command_line(tmp_path):
+    config_path = write_config(tmp_path, {"device": "auto", "pairs": []})
+    base = ["--config", str(config_path)]
+    assert cli.main(base + ["add-pair", "--name", "n", "--local", str(tmp_path / "x"), "--remote", "/sdcard/X",
+                            "--direction", "two-way", "--wifi-only", "--schedule", "22:00-07:00"]) == 0
+    pair = yaml.safe_load(config_path.read_text())["pairs"][0]
+    assert pair["run_conditions"] == {"wifi_only": True, "schedule": "22:00-07:00"}
+
+    assert cli.main(base + ["edit-pair", "n", "--charging-only", "--no-wifi-only"]) == 0
+    assert yaml.safe_load(config_path.read_text())["pairs"][0]["run_conditions"] == {"charging_only": True, "schedule": "22:00-07:00"}
+
+    assert cli.main(base + ["edit-pair", "n", "--no-charging-only", "--schedule", ""]) == 0
+    assert "run_conditions" not in yaml.safe_load(config_path.read_text())["pairs"][0]  # nothing left: key removed
+
+
+def test_a_bad_schedule_is_refused_and_nothing_is_saved(tmp_path, capsys):
+    config_path = write_config(tmp_path, {"device": "auto", "pairs": [{"name": "n", "local": str(tmp_path / "x"), "remote": "/sdcard/X", "direction": "two-way"}]})
+    assert cli.main(["--config", str(config_path), "edit-pair", "n", "--schedule", "midnight"]) == 2
+    assert "run_conditions" not in yaml.safe_load(config_path.read_text())["pairs"][0]

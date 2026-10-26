@@ -76,6 +76,15 @@ fun AgentSettingsSection(connectionState: ConnectionState) {
                 },
             )
         }
+        var pauseOnMobile by remember { mutableStateOf(AgentState.pauseOnMobile(context)) }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Pause on mobile data", modifier = Modifier.weight(1f))
+            Switch(checked = pauseOnMobile, onCheckedChange = { pauseOnMobile = it; AgentState.setPauseOnMobile(context, it) })
+        }
         if (!allFiles) {
             Text(
                 "Android must first allow this app to access all files.",

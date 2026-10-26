@@ -188,6 +188,24 @@ fun PairEditorScreen(
                 }
                 Switch(checked = uiState.auto, onCheckedChange = viewModel::onAutoChange)
             }
+            if (uiState.auto) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Only on Wi-Fi")
+                    Switch(checked = uiState.wifiOnly, onCheckedChange = viewModel::onWifiOnlyChange)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Only while charging")
+                    Switch(checked = uiState.chargingOnly, onCheckedChange = viewModel::onChargingOnlyChange)
+                }
+            }
 
             Text("Conflict policy", style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

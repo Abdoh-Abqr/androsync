@@ -168,4 +168,45 @@ class AgentLoopTest {
         withTimeout(20_000) { loop.run() }
         assertEquals(2, pauses) // slept after failures 1 and 2, returned on the 3rd
     }
+
+    @Test
+    fun `each poll tells the laptop how the phone is connected and powered`() {
+        val withState = AgentClient(server.url("/").toString(), "tok", pollWaitSeconds = 1, agentId = "me", statusQuery = { PhoneState.query("wifi", true) })
+        server.enqueue(MockResponse().setResponseCode(204))
+        withState.next()
+        val path = server.takeRequest().path!!
+        assertTrue(path, path.contains("agent=me") && path.contains("&net=wifi") && path.contains("&battery=charging"))
+        withState.close()
+    }
+
+    @Test
+    fun `a pause reason keeps the loop from polling and shows as a status`() = runBlocking {
+        val statuses = mutableListOf<AgentStatus>()
+        var paused = true
+        val loop = AgentLoop(
+            client,
+            AgentOps(guard = { it }),
+            onStatus = { statuses += it },
+            sleep = { paused = false },  // one pause "sleep" later the reason is gone
+            shouldPause = { if (paused) "the phone is on mobile data" else null },
+        )
+        server.enqueue(MockResponse().setResponseCode(204))
+        val job = launch(Dispatchers.IO) { loop.run() }
+        withTimeout(10_000) { while (server.requestCount < 1) kotlinx.coroutines.delay(20) }
+        job.cancel()
+        val firstPaused = statuses.indexOfFirst { it is AgentStatus.Paused }
+        val firstConnected = statuses.indexOfFirst { it is AgentStatus.Connected }
+        assertTrue(firstPaused >= 0 && (statuses[firstPaused] as AgentStatus.Paused).reason.contains("mobile data"))
+        assertTrue("the pause came before the first poll worked", firstConnected == -1 || firstPaused < firstConnected)
+    }
+
+    @Test
+    fun `phone state query and pause rules`() {
+        assertEquals("&net=mobile&battery=discharging", PhoneState.query("mobile", false))
+        assertEquals("&net=wifi", PhoneState.query("wifi", null))
+        assertEquals("", PhoneState.query(null, null))
+        assertEquals("the phone is on mobile data", PhoneState.pauseReason("mobile", true))
+        assertEquals(null, PhoneState.pauseReason("mobile", false))
+        assertEquals(null, PhoneState.pauseReason("wifi", true))
+    }
 }

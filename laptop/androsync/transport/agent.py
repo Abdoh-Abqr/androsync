@@ -82,6 +82,9 @@ class AgentBroker:
         self._last_seen: float | None = None
         #: Who is polling: only one phone's agent at a time, or an operation meant for one phone could be done by another.
         self._active_agent: str | None = None
+        #: What the agent last said about its phone (network kind, charging), and when (Phase T3).
+        self._phone_state: dict[str, Any] = {}
+        self._phone_state_at: float | None = None
 
     # -- state ------------------------------------------------------------------------------------------------
 
@@ -136,6 +139,22 @@ class AgentBroker:
                     self._last_seen = self._clock()
                     return None
                 self._cond.wait(min(remaining, 0.5))
+
+    def report_state(self, net: str | None, battery: str | None) -> None:
+        """The agent says how its phone is connected and powered (query parameters of ``GET /v1/agent/next``)."""
+        with self._cond:
+            if net in ("wifi", "mobile", "none"):
+                self._phone_state["net"] = net
+            if battery in ("charging", "discharging"):
+                self._phone_state["charging"] = battery == "charging"
+            self._phone_state_at = self._clock()
+
+    def phone_state(self, max_age: float = 120.0) -> dict[str, Any]:
+        """``{"net": ..., "charging": ...}`` as last reported, or ``{}`` when nothing recent is known."""
+        with self._cond:
+            if self._phone_state_at is None or self._clock() - self._phone_state_at > max_age:
+                return {}
+            return dict(self._phone_state)
 
     def find(self, op_id: str) -> _Op:
         """The live operation ``op_id``; ``KeyError`` if unknown or finished, :class:`AgentCancelled` if stopped."""

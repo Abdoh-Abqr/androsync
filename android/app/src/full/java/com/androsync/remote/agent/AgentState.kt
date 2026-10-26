@@ -17,6 +17,15 @@ object AgentState {
     private const val PREFS = "agent"
     private const val KEY_ENABLED = "enabled"
     private const val KEY_ID = "agent_id"
+    private const val KEY_PAUSE_MOBILE = "pause_on_mobile"
+
+    /** "Pause on mobile data": when on, the agent does not poll or work while the phone uses mobile data. */
+    fun pauseOnMobile(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_PAUSE_MOBILE, false)
+
+    fun setPauseOnMobile(context: Context, on: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_PAUSE_MOBILE, on).apply()
+    }
 
     /** A random id for this install, so the laptop can tell two phones' agents apart. Made once, then kept. */
     fun agentId(context: Context): String {
@@ -41,4 +50,5 @@ fun describe(status: AgentStatus): String = when (status) {
     AgentStatus.Connected -> "Connected, waiting for the laptop"
     is AgentStatus.Working -> "Working: ${status.operation}"
     is AgentStatus.Reconnecting -> "Reconnecting (${status.reason})"
+    is AgentStatus.Paused -> "Paused: ${status.reason}"
 }

@@ -9,6 +9,8 @@ All notable changes to androsync are recorded here. Format loosely follows
 - **Automatic sync**: a pair can sync by itself a few seconds after files change (`auto: true`). It never runs the first
   sync, never confirms a big change, pauses after three failures, and leaves no trace when nothing changed. See
   `docs/auto-sync.md`.
+- **Run conditions** for automatic syncs (Wi-Fi only, charging only, a time window), a **speed limit** for agent file transfers
+  (`service: bandwidth_kb_s`), and **Pause on mobile data** in the agent.
 - **Report a problem**: `androsync support-bundle`, a window dialog and an app screen make a redacted log file; a GitHub
   issue form and `docs/support.md`.
 - `androsync service new-token` and a New token button in the window; the config file is now readable by you only.

@@ -74,7 +74,16 @@ data class PairDto(
     val device: String = "any",
     /** Syncs by itself when files change (Phase T2). */
     val auto: Boolean = false,
+    @SerialName("run_conditions") val runConditions: RunConditionsDto = RunConditionsDto(),
     @SerialName("auto_state") val autoState: AutoStateDto? = null,
+)
+
+/** Wi-Fi only, charging only and a time window for automatic syncs (Phase T3); [schedule] looks like `22:00-07:00`. */
+@Serializable
+data class RunConditionsDto(
+    @SerialName("wifi_only") val wifiOnly: Boolean = false,
+    @SerialName("charging_only") val chargingOnly: Boolean = false,
+    val schedule: String? = null,
 )
 
 /** What automatic sync is doing for a pair: "off", "watching", "waiting" or "paused" (with the [reason]). */
@@ -217,6 +226,8 @@ data class PairRequest(
     val device: String? = null,
     /** Sent only when on; omitted means off (Phase T2). */
     val auto: Boolean? = null,
+    /** Sent only when any condition is set; omitted clears them (Phase T3). */
+    @SerialName("run_conditions") val runConditions: RunConditionsDto? = null,
 )
 
 /** One entry of `GET /v1/browse` -> {..., entries: [{name, is_dir, size, hidden}], ...}. */

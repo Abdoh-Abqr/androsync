@@ -8,6 +8,7 @@ import com.androsync.remote.data.SafPath
 import com.androsync.remote.data.api.ApiException
 import com.androsync.remote.data.api.BrowseDto
 import com.androsync.remote.data.api.PairRequest
+import com.androsync.remote.data.api.RunConditionsDto
 import com.androsync.remote.ui.ConnectionViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
@@ -74,6 +75,10 @@ data class PairEditorUiState(
     val device: String = "any",
     /** Sync by itself when files change (Phase T2). */
     val auto: Boolean = false,
+    /** Automatic syncs only on Wi-Fi / while charging; the time window is carried through unchanged (Phase T3). */
+    val wifiOnly: Boolean = false,
+    val chargingOnly: Boolean = false,
+    val schedule: String? = null,
     val saving: Boolean = false,
     val formError: String? = null,
     val browse: BrowseUiState? = null,
@@ -159,6 +164,9 @@ class PairEditorViewModel(
                             transport = pair.transport,
                             device = pair.device,
                             auto = pair.auto,
+                            wifiOnly = pair.runConditions.wifiOnly,
+                            chargingOnly = pair.runConditions.chargingOnly,
+                            schedule = pair.runConditions.schedule,
                             originalLocal = pair.local,
                             originalRemote = pair.remote,
                         )
@@ -205,6 +213,10 @@ class PairEditorViewModel(
 
     fun onAutoChange(value: Boolean) = _uiState.update { it.copy(auto = value) }
 
+    fun onWifiOnlyChange(value: Boolean) = _uiState.update { it.copy(wifiOnly = value) }
+
+    fun onChargingOnlyChange(value: Boolean) = _uiState.update { it.copy(chargingOnly = value) }
+
     fun save() {
         val state = _uiState.value
         val error = validatePairForm(state.name, state.local, state.remote)
@@ -237,6 +249,8 @@ class PairEditorViewModel(
                 transport = state.transport.takeIf { it != "adb" },
                 device = state.device.takeIf { it != ANY_PHONE },
                 auto = state.auto.takeIf { it },
+                runConditions = RunConditionsDto(state.wifiOnly, state.chargingOnly, state.schedule)
+                    .takeIf { it.wifiOnly || it.chargingOnly || it.schedule != null },
             )
             try {
                 if (state.isNew) {
