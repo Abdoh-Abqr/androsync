@@ -21,6 +21,8 @@ sealed class ConnectionState {
         val devices: List<DeviceStateDto> = emptyList(),
         /** True when the laptop says the phone app's agent is polling it (task 37c). */
         val agentConnected: Boolean = false,
+        /** What the computer is called, for labels like "Ubuntu ↔ S24 FE" (Phase V2); null from an older laptop. */
+        val laptopName: String? = null,
     ) : ConnectionState()
 
     data class Unreachable(val lastError: String?) : ConnectionState()

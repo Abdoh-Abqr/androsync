@@ -665,6 +665,7 @@ def pairs_status(config: Config, auto_status: Callable[[str], dict] | None = Non
                 "conflict": pair.conflict,
                 "transport": pair.transport,
                 "device": pair.device,
+                "device_name": (config.phones[pair.device].name or None) if pair.device in config.phones else None,
                 "auto": pair.auto,
                 "run_conditions": {
                     "wifi_only": pair.run_conditions.wifi_only,

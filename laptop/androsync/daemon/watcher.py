@@ -39,7 +39,7 @@ from androsync.daemon.jobs import JobBusy, JobRunner
 from androsync.daemon.server import ApiServer
 from androsync.model import Side
 from androsync.service_state import remove_pid_file, write_pid_file
-from androsync.transport.adb import Adb, AdbTransport, hardware_serial, resolve_device, resolve_pair_device
+from androsync.transport.adb import Adb, AdbTransport, hardware_serial, phone_model, resolve_device, resolve_pair_device
 from androsync.transport.agent import AgentBroker
 from androsync.transport.local import LocalDirTransport
 
@@ -312,6 +312,8 @@ class Daemon:
         self._extra_reconnectors: list[WifiReconnector] = []  # one per further phone with a wifi_target (task 33b)
         #: connection serial -> the phone's hardware serial, learned when it connects (kept out of the ping's way).
         self._hardware_serials: dict[str, str] = {}
+        #: connection serial -> model name, the label for a phone the user has not named (Phase V2)
+        self._models: dict[str, str] = {}
 
         # The mailbox the phone app polls in agent mode (task 37b); transports for agent pairs use this same one.
         self.agent_broker = AgentBroker()
@@ -543,6 +545,9 @@ class Daemon:
         hardware = hardware_serial(serial)
         if hardware:
             self._hardware_serials[serial] = hardware
+        model = phone_model(serial)
+        if model:
+            self._models[serial] = model
         with self._device_lock:
             self._device_serial = serial
             self._device_transport = _transport_kind(serial)
@@ -681,7 +686,7 @@ class Daemon:
                     "state": state,
                     "transport": _transport_kind(serial),
                     "id": phone_id,
-                    "name": (phone.name or None) if phone is not None else None,
+                    "name": ((phone.name or None) if phone is not None else None) or self._models.get(serial),
                 }
             )
         info["devices"] = rows

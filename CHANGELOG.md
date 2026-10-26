@@ -5,6 +5,11 @@ All notable changes to androsync are recorded here. Format loosely follows
 
 ## [Unreleased]
 
+### Added
+- Names in the direction: pairs read "Ubuntu ↔ S24 FE" (or "Ubuntu ↔ any phone") in the app and the window. The computer's name is `service.name` (default: host name); phones show the name you gave them, else their model.
+- The pair editor always shows the Phone row with "Any phone"; the window's pair editor has a Phone choice too.
+- `PUT /v1/laptop` and `PUT /v1/phones/<id>` rename the computer and a phone.
+
 ### Improved
 - A pair that works over USB or Wi-Fi debugging only now says so first when the phone is connected another way ("This pair works over USB or Wi-Fi debugging only, but the phone is connected over Tailscale right now."), then gives the usual hint. The app also names the connection when it cannot see a phone over adb.
 

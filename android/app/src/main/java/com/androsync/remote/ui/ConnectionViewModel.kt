@@ -126,6 +126,7 @@ class ConnectionViewModel(
                     currentJob = result.ping.currentJob,
                     devices = result.ping.devices,
                     agentConnected = result.ping.agent == "connected",
+                    laptopName = result.ping.laptopName,
                 )
                 if (clientIsStale(_activeApiClient.value, result.baseUrl, token)) {
                     _activeApiClient.value = clientFactory(result.baseUrl, token)

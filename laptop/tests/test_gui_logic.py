@@ -194,3 +194,38 @@ def test_auto_label_says_what_automatic_sync_is_doing():
     assert auto_label({"name": "a", "auto": True, "auto_state": {"state": "waiting"}}) == "waiting"
     assert auto_label({"name": "a", "auto": True, "auto_state": {"state": "paused", "reason": "x"}}) == "paused"
     assert auto_label({"name": "a", "auto": True}) == "on"  # an older daemon sends no state
+
+
+def test_direction_label_uses_names_and_says_any_phone_when_unbound():
+    from androsync.gui.logic import direction_label
+
+    assert direction_label("two-way", "Ubuntu", "S24 FE") == "Ubuntu ↔ S24 FE"
+    assert direction_label("laptop-to-phone", "Ubuntu", "S24 FE") == "Ubuntu → S24 FE"
+    assert direction_label("phone-to-laptop", "Ubuntu", None) == "Ubuntu ← any phone"
+    assert direction_label("two-way", "", None) == "Laptop ↔ any phone"
+    assert direction_label("odd", "Ubuntu", "x") == "odd"
+
+
+def test_phone_choices_lists_ready_phones_and_keeps_the_bound_one():
+    from types import SimpleNamespace
+
+    from androsync.gui.logic import phone_choices
+
+    ping = {
+        "devices": [
+            {"serial": "usb1", "id": "HW1", "state": "device", "name": "S24 FE"},
+            {"serial": "usb2", "id": "HW2", "state": "unauthorized", "name": None},
+        ]
+    }
+    assert phone_choices(ping, {}) == [("HW1", "S24 FE")]
+    assert phone_choices(ping, {"HW9": SimpleNamespace(name="Old phone")}, keep="HW9") == [("HW1", "S24 FE"), ("HW9", "Old phone")]
+    assert phone_choices(None, {}, keep="HW5") == [("HW5", "HW5 (not connected)")]
+    assert phone_choices(None, {}) == []
+
+
+def test_pair_row_shows_names_when_the_laptop_name_is_known():
+    row = format_pair_row({"name": "p", "direction": "two-way", "device": "HW1", "device_name": "S24 FE"}, "Ubuntu")
+    assert row[1] == "Ubuntu ↔ S24 FE"
+    row = format_pair_row({"name": "p", "direction": "two-way", "device": "any"}, "Ubuntu")
+    assert row[1] == "Ubuntu ↔ any phone"
+    assert format_pair_row({"name": "p", "direction": "two-way"})[1] == "two-way"

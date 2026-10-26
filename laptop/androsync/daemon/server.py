@@ -18,6 +18,7 @@ from __future__ import annotations
 import hmac
 import json
 import logging
+import platform
 import re
 import secrets
 import threading
@@ -94,6 +95,8 @@ _ROUTES: list[tuple[str, re.Pattern, str]] = [
     ("GET", re.compile(r"^/v1/runs/(?P<pair>[^/]+)$"), "_h_runs_list"),
     ("POST", re.compile(r"^/v1/undo/(?P<pair>[^/]+)$"), "_h_undo"),
     ("POST", re.compile(r"^/v1/token/rotate$"), "_h_token_rotate"),
+    ("PUT", re.compile(r"^/v1/laptop$"), "_h_laptop_update"),
+    ("PUT", re.compile(r"^/v1/phones/(?P<id>[^/]+)$"), "_h_phone_update"),
     ("POST", re.compile(r"^/v1/agent/event$"), "_h_agent_event"),
     # The phone app as an agent (task 37b, issue #14); the wire format is in docs/agent-protocol.md.
     ("GET", re.compile(r"^/v1/agent/next$"), "_h_agent_next"),
@@ -198,10 +201,17 @@ class _Handler(BaseHTTPRequestHandler):
 
     # -- route handlers ------------------------------------------------------
 
+    def _laptop_name(self) -> str:
+        try:
+            return self.api._config_loader().laptop_name()
+        except Exception:  # noqa: BLE001 - a broken config must not make the ping fail
+            return platform.node() or "Laptop"
+
     def _h_ping(self, match: re.Match, query: str) -> int:
         info = self.api._device_info() if self.api._device_info is not None else {}
         body = {
             "name": "androsync",
+            "laptop_name": self._laptop_name(),
             "version": self.api._version,
             "transport": info.get("transport"),
             "device": info.get("device"),
@@ -249,6 +259,30 @@ class _Handler(BaseHTTPRequestHandler):
         self.api._token = new_token
         _LOG.info("a new token was generated through the API")
         return self._send_json(200, {"token": new_token})
+
+    def _save_name(self, edit: Callable[[dict, str], dict]) -> int:
+        """Shared by the laptop and phone rename routes: body ``{"name": ...}``, saved through ``config_edit``."""
+        config_path = self.api._config_path
+        if config_path is None:
+            return self._send_json(503, {"error": "this daemon was started without a config file, so it cannot save names"})
+        try:
+            body = self._read_json_body()
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return self._send_json(400, {"error": "bad json"})
+        if not isinstance(body, dict) or "name" not in body:
+            return self._send_json(400, {"error": "body must be {name}"})
+        try:
+            config_edit.save_raw(config_path, edit(config_edit.load_raw(config_path), body["name"]))
+        except ConfigError as exc:
+            return self._send_json(400, {"error": str(exc)})
+        return self._send_json(200, {"ok": True})
+
+    def _h_laptop_update(self, match: re.Match, query: str) -> int:
+        return self._save_name(config_edit.set_laptop_name)
+
+    def _h_phone_update(self, match: re.Match, query: str) -> int:
+        phone_id = unquote(match.group("id"))
+        return self._save_name(lambda raw, name: config_edit.set_phone(raw, phone_id, name=name))
 
     # -- agent mode: the phone app does the file work (task 37b) ------------------------------------------------
 

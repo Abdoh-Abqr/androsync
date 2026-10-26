@@ -30,6 +30,7 @@ from androsync.gui.logic import (
     folder_change_prompt,
     should_attach,
     shutdown_steps,
+    phone_choices,
     suggest_transport,
     sync_bar_view,
 )
@@ -112,6 +113,7 @@ class App:
         self._state = service_state.detect_state(config)
         self._service_panel.update_state(self._state)
         if config is not None:
+            self._pairs_panel.laptop_name = config.laptop_name()
             self._pairs_panel.set_pairs(self._backend_safe_list_pairs(config))
             self._update_sync_bar(config)
         self._root.after(_STATE_POLL_MS, self._poll_state)
@@ -327,6 +329,8 @@ class App:
             existing=None,
             remote_list_fn=lambda p: self._remote_list(config, p),
             default_transport=suggest_transport(config.defaults.get("transport"), self._state.ping),
+            laptop_name=config.laptop_name(),
+            phones=phone_choices(self._state.ping, config.phones),
         )
         self._root.wait_window(dialog)
         if dialog.result is None:
@@ -352,7 +356,11 @@ class App:
         if pair is None:
             return
         dialog = PairEditorDialog(
-            self._root, existing=pair, remote_list_fn=lambda p: self._remote_list(config, p)
+            self._root,
+            existing=pair,
+            remote_list_fn=lambda p: self._remote_list(config, p),
+            laptop_name=config.laptop_name(),
+            phones=phone_choices(self._state.ping, config.phones, keep=pair.device or "any"),
         )
         self._root.wait_window(dialog)
         if dialog.result is None:

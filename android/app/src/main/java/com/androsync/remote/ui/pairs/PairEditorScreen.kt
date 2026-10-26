@@ -5,6 +5,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -42,6 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.androsync.remote.ui.ConnectionViewModel
 import com.androsync.remote.ui.common.AndroSyncTopBar
 import com.androsync.remote.ui.common.ConnectionState
+import com.androsync.remote.ui.common.directionText
 import com.androsync.remote.ui.common.FolderBrowserSheet
 import com.androsync.remote.ui.rememberPairEditorViewModel
 
@@ -51,7 +54,7 @@ import com.androsync.remote.ui.rememberPairEditorViewModel
  * conflict policy, propagate-deletes, ignore patterns, and (edit mode
  * only) Delete.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun PairEditorScreen(
     pairName: String?,
@@ -127,14 +130,24 @@ fun PairEditorScreen(
                 onBrowseViaLaptop = { viewModel.openBrowser("remote") },
             )
 
+            val connected = connectionState as? ConnectionState.Connected
+            val phones = phoneChoices(connected?.devices.orEmpty(), alsoKeep = listOf(uiState.device))
+            val boundName = phones.firstOrNull { it.id == uiState.device }?.label
+            val lapName = connected?.laptopName
             Text("Direction", style = MaterialTheme.typography.titleSmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DirectionChip(Direction.LAPTOP_TO_PHONE, "laptop → phone", uiState.direction, viewModel::onDirectionChange)
-                DirectionChip(Direction.TWO_WAY, "laptop ↔ phone", uiState.direction, viewModel::onDirectionChange)
-                DirectionChip(Direction.PHONE_TO_LAPTOP, "laptop ← phone", uiState.direction, viewModel::onDirectionChange)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DirectionChip(Direction.LAPTOP_TO_PHONE, directionText("laptop-to-phone", lapName, boundName), uiState.direction, viewModel::onDirectionChange)
+                DirectionChip(Direction.TWO_WAY, directionText("two-way", lapName, boundName), uiState.direction, viewModel::onDirectionChange)
+                DirectionChip(Direction.PHONE_TO_LAPTOP, directionText("phone-to-laptop", lapName, boundName), uiState.direction, viewModel::onDirectionChange)
             }
 
             // Only the build that contains the agent can choose it (task 37d); the play build keeps what is saved.
+            if (!Distribution.HAS_AGENT) {
+                Text(
+                    "This version reaches the phone over USB or Wi-Fi debugging. The full version can also sync without debugging.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             if (Distribution.HAS_AGENT) {
                 Text("Reach the phone via", style = MaterialTheme.typography.titleSmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -151,14 +164,15 @@ fun PairEditorScreen(
                 }
             }
 
-            // Which phone the pair belongs to (task 33a): shown when more than one phone can be told apart.
-            val phones = phoneChoices(
-                (connectionState as? ConnectionState.Connected)?.devices.orEmpty(),
-                alsoKeep = listOf(uiState.device),
-            )
-            if (phones.size > 1 || uiState.device != ANY_PHONE) {
+            // Which phone the pair belongs to (task 33a). Always shown, so "Any phone" can be found (Phase V2).
+            run {
                 Text("Phone", style = MaterialTheme.typography.titleSmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Any phone = whichever phone is connected when the sync starts. With two phones connected at once " +
+                        "the sync asks you to pick.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
                         selected = uiState.device == ANY_PHONE,
                         onClick = { viewModel.onDeviceChange(ANY_PHONE) },

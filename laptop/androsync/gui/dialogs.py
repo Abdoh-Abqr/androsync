@@ -18,6 +18,7 @@ from typing import Callable
 from androsync.browse import BrowseError, BrowseResult
 from androsync import service, support
 from androsync.config import DIRECTIONS, CONFLICT_POLICIES, TRANSPORT_MODES, PairConfig
+from androsync.gui.logic import ANY_PHONE, ANY_PHONE_LABEL, direction_label
 from androsync.phone_path import PhonePathError, check_remote, normalize_remote, validate_remote
 
 _FETCH_POLL_MS = 80
@@ -142,6 +143,8 @@ class PairEditorDialog(tk.Toplevel):
         existing: PairConfig | None,
         remote_list_fn: Callable[[str], BrowseResult] | None,
         default_transport: str = "adb",
+        laptop_name: str = "Laptop",
+        phones: list[tuple[str, str]] | None = None,
     ) -> None:
         super().__init__(master)
         #: Set when a new pair's dialog is saved with "use this for new pairs": the caller stores it in the config.
@@ -168,7 +171,15 @@ class PairEditorDialog(tk.Toplevel):
         self._name_var = tk.StringVar(value=existing.name if existing else "")
         self._local_var = tk.StringVar(value=str(existing.local) if existing else "")
         self._remote_var = tk.StringVar(value=existing.remote if existing else "")
-        self._direction_var = tk.StringVar(value=existing.direction if existing else "two-way")
+        self._laptop_name = laptop_name
+        # (id, label) per phone, "any" first; a pair bound to a phone that is not listed keeps it (Phase V2).
+        self._phone_options = [(ANY_PHONE, ANY_PHONE_LABEL), *(phones or [])]
+        bound = existing.device if existing and existing.device else ANY_PHONE
+        if bound not in dict(self._phone_options):
+            self._phone_options.append((bound, f"{bound} (not connected)"))
+        self._phone_var = tk.StringVar(value=dict(self._phone_options)[bound])
+        self._direction = existing.direction if existing else "two-way"
+        self._direction_var = tk.StringVar()
         self._conflict_var = tk.StringVar(value=existing.conflict if existing else "newest-wins")
         self._transport_var = tk.StringVar(value=existing.transport if existing else default_transport)
         self._auto_var = tk.BooleanVar(value=existing.auto if existing else False)
@@ -204,10 +215,19 @@ class PairEditorDialog(tk.Toplevel):
             browse_remote_btn.state(["disabled"])
 
         row += 1
-        ttk.Label(self, text="Direction").grid(row=row, column=0, sticky="w", padx=8, pady=4)
-        ttk.Combobox(self, textvariable=self._direction_var, values=DIRECTIONS, state="readonly").grid(
-            row=row, column=1, columnspan=2, sticky="we", padx=8, pady=4
+        ttk.Label(self, text="Phone").grid(row=row, column=0, sticky="w", padx=8, pady=4)
+        phone_box = ttk.Combobox(
+            self, textvariable=self._phone_var, values=[label for _, label in self._phone_options], state="readonly"
         )
+        phone_box.grid(row=row, column=1, columnspan=2, sticky="we", padx=8, pady=4)
+        phone_box.bind("<<ComboboxSelected>>", lambda _event: self._refresh_direction_labels())
+
+        row += 1
+        ttk.Label(self, text="Direction").grid(row=row, column=0, sticky="w", padx=8, pady=4)
+        self._direction_box = ttk.Combobox(self, textvariable=self._direction_var, state="readonly")
+        self._direction_box.grid(row=row, column=1, columnspan=2, sticky="we", padx=8, pady=4)
+        self._direction_box.bind("<<ComboboxSelected>>", lambda _event: self._read_direction())
+        self._refresh_direction_labels()
 
         row += 1
         ttk.Label(self, text="Reach the phone via").grid(row=row, column=0, sticky="w", padx=8, pady=4)
@@ -252,6 +272,25 @@ class PairEditorDialog(tk.Toplevel):
         buttons.grid(row=row, column=0, columnspan=3, sticky="e", padx=8, pady=8)
         ttk.Button(buttons, text="Cancel", command=self.destroy).pack(side="right", padx=4)
         ttk.Button(buttons, text="Save", command=self._save).pack(side="right")
+
+    def _selected_phone_id(self) -> str:
+        label = self._phone_var.get()
+        return next((pid for pid, text in self._phone_options if text == label), ANY_PHONE)
+
+    def _phone_name_or_none(self) -> str | None:
+        phone_id = self._selected_phone_id()
+        return None if phone_id == ANY_PHONE else dict(self._phone_options)[phone_id]
+
+    def _refresh_direction_labels(self) -> None:
+        """Show the three directions with the names of this computer and the chosen phone (Phase V2)."""
+        phone = self._phone_name_or_none()
+        self._direction_box.configure(values=[direction_label(d, self._laptop_name, phone) for d in DIRECTIONS])
+        self._direction_var.set(direction_label(self._direction, self._laptop_name, phone))
+
+    def _read_direction(self) -> None:
+        phone = self._phone_name_or_none()
+        chosen = self._direction_var.get()
+        self._direction = next((d for d in DIRECTIONS if direction_label(d, self._laptop_name, phone) == chosen), self._direction)
 
     def _conditions_dict(self) -> dict:
         """The run conditions the dialog sets; empty when none, so the saved pair stays tidy (Phase T3)."""
@@ -302,7 +341,8 @@ class PairEditorDialog(tk.Toplevel):
             "name": name,
             "local": local,
             "remote": remote,
-            "direction": self._direction_var.get(),
+            "direction": self._direction,
+            "device": self._selected_phone_id(),
             "conflict": self._conflict_var.get(),
             "transport": self._transport_var.get(),
             "auto": self._auto_var.get(),

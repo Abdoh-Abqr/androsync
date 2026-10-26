@@ -78,7 +78,7 @@ import com.androsync.remote.ui.setup.DeviceReadiness
 import com.androsync.remote.ui.setup.deviceReadiness
 import com.androsync.remote.ui.setup.phoneProblemLead
 import com.androsync.remote.ui.common.SyncError
-import com.androsync.remote.ui.common.directionArrowText
+import com.androsync.remote.ui.common.directionText
 import com.androsync.remote.ui.common.formatLastResult
 import com.androsync.remote.ui.common.formatRelativeTime
 import com.androsync.remote.ui.common.snackbarMessageFor
@@ -155,6 +155,7 @@ fun PairsScreen(
     // Task 33a: with pairs bound to different phones, a row of chips narrows the list to one phone's pairs plus the
     // "any phone" pairs. Null = show everything.
     val devices = (connectionState as? ConnectionState.Connected)?.devices.orEmpty()
+    val laptopName = (connectionState as? ConnectionState.Connected)?.laptopName
     var phoneFilter by rememberSaveable { mutableStateOf<String?>(null) }
     val phonesInUse = phoneChoices(devices, alsoKeep = uiState.pairs.map { it.device })
 
@@ -276,7 +277,8 @@ fun PairsScreen(
                         }
                         items(filterPairsForPhone(uiState.pairs, phoneFilter), key = { it.name }) { pair ->
                             PairCard(
-                                phoneLabel = phoneLabel(pair.device, devices),
+                                                phoneLabel = pair.deviceName ?: phoneLabel(pair.device, devices),
+                                laptopName = laptopName,
                                 pair = pair,
                                 syncEnabled = syncEnabled,
                                 pendingCount = uiState.pendingCounts[pair.name] ?: 0,
@@ -354,6 +356,7 @@ private suspend fun handlePairsError(
 @Composable
 private fun PairCard(
     phoneLabel: String? = null,
+    laptopName: String? = null,
     pair: PairDto,
     syncEnabled: Boolean,
     pendingCount: Int,
@@ -405,9 +408,8 @@ private fun PairCard(
                 }
             }
             Text(
-                directionArrowText(pair.direction) +
+                directionText(pair.direction, laptopName, phoneLabel) +
                     (if (pair.transport == "agent") "  ·  via this app" else "") +
-                    (if (phoneLabel != null) "  ·  $phoneLabel" else "") +
                     autoBadge(pair),
                 style = MaterialTheme.typography.bodyMedium,
             )

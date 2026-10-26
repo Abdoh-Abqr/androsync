@@ -70,13 +70,26 @@ def set_service_token(raw: dict[str, Any], token: str) -> dict[str, Any]:
     return new_raw
 
 
+def set_laptop_name(raw: dict[str, Any], name: str) -> dict[str, Any]:
+    """Return a new raw dict whose ``service.name`` is ``name`` (Phase V2); ``ConfigError`` for a bad name."""
+    from androsync.config import validate_display_name
+
+    new_raw = dict(raw)
+    service = dict(new_raw.get("service") or {})
+    service["name"] = validate_display_name(name, "the laptop name")
+    new_raw["service"] = service
+    return new_raw
+
+
 def set_phone(raw: dict[str, Any], phone_id: str, *, name: str | None = None, wifi_target: str | None = None) -> dict[str, Any]:
     """Return a new raw dict with ``phones[phone_id]`` created or updated (task 33b). ``None`` leaves a field as it is."""
+    from androsync.config import validate_display_name
+
     new_raw = dict(raw)
     phones = dict(new_raw.get("phones") or {})
     entry = dict(phones.get(phone_id) or {})
     if name is not None:
-        entry["name"] = name
+        entry["name"] = validate_display_name(name, "the phone name")
     if wifi_target is not None:
         entry["wifi_target"] = wifi_target
     phones[phone_id] = entry

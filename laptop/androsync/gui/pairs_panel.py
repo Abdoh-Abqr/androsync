@@ -25,6 +25,8 @@ class PairsPanel(ttk.LabelFrame):
         on_remove: Callable[[str], None],
     ) -> None:
         super().__init__(master, text="Pairs")
+        #: What the computer is called; the Direction column then reads "Ubuntu <-> S24 FE" (Phase V2).
+        self.laptop_name: str | None = None
 
         self.tree = ttk.Treeview(self, columns=_COLUMNS, show="tree headings", selectmode="browse", height=8)
         self.tree.heading("#0", text="Name")
@@ -69,7 +71,7 @@ class PairsPanel(ttk.LabelFrame):
         selected = self._selected_name()
         self.tree.delete(*self.tree.get_children())
         for pair in pairs:
-            name, direction, last_run, last_result, enabled = format_pair_row(pair)
+            name, direction, last_run, last_result, enabled = format_pair_row(pair, self.laptop_name)
             tags = ("failed",) if last_result.startswith("FAILED:") else ()
             self.tree.insert(
                 "",

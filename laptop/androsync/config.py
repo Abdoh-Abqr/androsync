@@ -9,6 +9,7 @@ directory helper used by ``state.py``.
 from __future__ import annotations
 
 import os
+import platform
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -73,6 +74,8 @@ class ServiceConfig:
     #: Speed limit for files moved through the phone app (agent mode), in kilobytes per second (KB/s); 0 = no limit (Phase T3).
     #: adb transfers cannot be throttled.
     bandwidth_kb_s: int = 0
+    #: What this computer is called in the phone app and in the window ("Ubuntu <-> S24 FE"); empty = the host name.
+    name: str = ""
 
 
 @dataclass
@@ -148,6 +151,20 @@ class Config:
     #: The phones the user named, by hardware serial (`androsync devices` shows it). Optional.
     phones: dict[str, PhoneConfig] = field(default_factory=dict)
 
+    def laptop_name(self) -> str:
+        """The computer's display name: ``service.name``, else the host name, else "Laptop" (Phase V2)."""
+        return self.service.name or platform.node() or "Laptop"
+
+
+def validate_display_name(value: object, what: str = "name") -> str:
+    """``value`` as a trimmed display name (1 to 40 characters, no control characters); ``ConfigError`` otherwise."""
+    text = str(value).strip() if value is not None else ""
+    if not text or len(text) > 40:
+        raise ConfigError(f"{what} must be 1 to 40 characters")
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in text):
+        raise ConfigError(f"{what} must not contain control characters")
+    return text
+
 
 def _default_conditions():
     from androsync.run_conditions import RunConditions
@@ -207,6 +224,8 @@ def load_config(path: Path | None = None) -> Config:
     if "listen" in service_raw:
         service_raw["listen"] = _as_listen_list(service_raw["listen"])
     service = ServiceConfig(**service_raw)
+    if service.name:
+        service.name = validate_display_name(service.name, "service: name")
 
     if not (1 <= service.port <= 65535):
         raise ConfigError(f"service: port must be between 1 and 65535, got {service.port!r}")

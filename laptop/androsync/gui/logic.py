@@ -70,10 +70,41 @@ def service_panel_view(state: ServiceState) -> ServicePanelView:
     )
 
 
+ANY_PHONE = "any"
+ANY_PHONE_LABEL = "Any phone"
+
+
+def direction_label(direction: str, laptop_name: str | None, phone_name: str | None) -> str:
+    """``Ubuntu <-> S24 FE`` for a pair bound to a phone, ``Ubuntu <-> any phone`` otherwise (Phase V2)."""
+    left = (laptop_name or "").strip() or "Laptop"
+    right = (phone_name or "").strip() or "any phone"
+    arrow = {"laptop-to-phone": "\u2192", "phone-to-laptop": "\u2190", "two-way": "\u2194"}.get(direction)
+    return f"{left} {arrow} {right}" if arrow else direction
+
+
+def phone_choices(ping: dict | None, config_phones: dict | None, keep: str = ANY_PHONE) -> list[tuple[str, str]]:
+    """``[(id, label)]`` of the phones a pair can be bound to: every ready phone the laptop sees, plus ``keep``.
+
+    ``keep`` is the phone the pair is bound to now, listed even when it is not attached so editing never rebinds it.
+    ``any`` is not in the list; the dialog adds it first as "Any phone".
+    """
+    names = {pid: (getattr(phone, "name", "") or "") for pid, phone in (config_phones or {}).items()}
+    choices: dict[str, str] = {}
+    for device in (ping or {}).get("devices") or []:
+        if device.get("state") != "device":
+            continue
+        phone_id = device.get("id") or device.get("serial")
+        if phone_id:
+            choices.setdefault(phone_id, device.get("name") or names.get(phone_id) or phone_id)
+    if keep and keep != ANY_PHONE and keep not in choices:
+        choices[keep] = names.get(keep) or f"{keep} (not connected)"
+    return list(choices.items())
+
+
 PairRow = tuple[str, str, str, str, str]
 
 
-def format_pair_row(pair: dict) -> PairRow:
+def format_pair_row(pair: dict, laptop_name: str | None = None) -> PairRow:
     """``(name, direction, last run, last result, enabled)`` for the Pairs table.
 
     ``pair`` is one entry of ``daemon.jobs.pairs_status()`` - the same shape
@@ -82,10 +113,17 @@ def format_pair_row(pair: dict) -> PairRow:
     """
     name = pair["name"]
     direction = pair.get("direction", "")
+    if laptop_name is not None:
+        direction = direction_label(direction, laptop_name, pair.get("device_name") or _bound_id(pair))
     last_run = pair.get("last_run") or "never"
     last_result = pair.get("last_result") or ""
     enabled = "yes" if pair.get("enabled", True) else "no"
     return (name, direction, last_run, last_result, enabled)
+
+
+def _bound_id(pair: dict) -> str | None:
+    device = pair.get("device")
+    return None if not device or device == ANY_PHONE else device
 
 
 def suggest_transport(config_default: str | None, ping: dict | None) -> str:

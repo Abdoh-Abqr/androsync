@@ -24,6 +24,8 @@ data class PingDto(
     @SerialName("current_job") val currentJob: CurrentJobDto? = null,
     /** Every phone adb knows and its state, so the app can say what is missing (task 37f, issue #10). */
     val devices: List<DeviceStateDto> = emptyList(),
+    /** What the computer is called (`service.name`, else its host name); older laptops do not send it. */
+    @SerialName("laptop_name") val laptopName: String? = null,
     /** "connected" when the phone app's agent is polling the laptop (task 37b), else "absent". */
     val agent: String? = null,
 )
@@ -72,6 +74,8 @@ data class PairDto(
     @SerialName("last_result") val lastResult: String? = null,
     /** "any" or the id of the phone this pair belongs to (task 33a). */
     val device: String = "any",
+    /** The bound phone's name from the laptop's phone list, or null (Phase V2). */
+    @SerialName("device_name") val deviceName: String? = null,
     /** Syncs by itself when files change (Phase T2). */
     val auto: Boolean = false,
     @SerialName("run_conditions") val runConditions: RunConditionsDto = RunConditionsDto(),

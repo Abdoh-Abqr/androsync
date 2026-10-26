@@ -13,6 +13,7 @@
 - **Bind a pair to a phone:** in the app, open the pair and choose the phone under "Phone"; or set `device: <id>` on the
   pair in the config. Find the ids with `androsync devices` (the ID column). A pair bound to a phone only syncs with
   that phone; "Any phone" is the default.
+- **Name your computer:** set `service.name` in the config (default: the host name), for example `name: Home server`. The app and window show it in labels like "Home server ↔ S24 FE".
 - **Name your phones:** `androsync phone set <id> --name "S24 FE"`. Add `--wifi 100.x.y.z:5555` and the laptop keeps
   trying to reconnect that phone over Wi-Fi or Tailscale. `androsync phone list` shows them.
 - **Undo** only works with the phone that made the sync.

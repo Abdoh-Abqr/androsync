@@ -115,6 +115,34 @@ def test_pair_editor_dialog_does_not_shadow_tk_internal_name_edit_mode():
         root.destroy()
 
 
+def test_pair_editor_dialog_shows_names_in_the_direction_and_saves_the_phone():
+    from androsync.gui.dialogs import PairEditorDialog
+
+    root = _make_root()
+    try:
+        dialog = PairEditorDialog(
+            root,
+            existing=None,
+            remote_list_fn=None,
+            laptop_name="Ubuntu",
+            phones=[("HW1", "S24 FE")],
+        )
+        assert dialog._direction_var.get() == "Ubuntu \u2194 any phone"
+        dialog._phone_var.set("S24 FE")
+        dialog._refresh_direction_labels()
+        assert dialog._direction_var.get() == "Ubuntu \u2194 S24 FE"
+        dialog._direction_var.set("Ubuntu \u2192 S24 FE")
+        dialog._read_direction()
+        dialog._name_var.set("p")
+        dialog._local_var.set("/tmp/x")
+        dialog._remote_var.set("/sdcard/x")
+        dialog._save()
+        assert dialog.result["direction"] == "laptop-to-phone"
+        assert dialog.result["device"] == "HW1"
+    finally:
+        root.destroy()
+
+
 def test_folder_browser_dialog_does_not_shadow_tk_internal_name():
     from androsync.browse import BrowseResult
     from androsync.gui.dialogs import FolderBrowserDialog

@@ -311,6 +311,19 @@ def hardware_serial(connection_serial: str, adb_path: str = "adb") -> str | None
     return value if result.returncode == 0 and value and value.lower() != "unknown" else None
 
 
+def phone_model(connection_serial: str, adb_path: str = "adb") -> str | None:
+    """The phone's model name (``ro.product.model``, for example "SM-S721B"), used until the user names the phone."""
+    try:
+        result = _run_process(
+            [adb_path, "-s", connection_serial, "shell", "getprop ro.product.model"],
+            capture_output=True, text=True, timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    value = (result.stdout or "").strip() if isinstance(result.stdout, str) else ""
+    return value if result.returncode == 0 and value else None
+
+
 def resolve_pair_device(
     pair_device: str | None, config_device: str, *, wifi_target: str | None = None, adb_path: str = "adb"
 ) -> str:
