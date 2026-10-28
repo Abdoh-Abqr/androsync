@@ -94,7 +94,10 @@ class AgentService : Service() {
                 outcome.result.baseUrl,
                 token,
                 agentId = AgentState.agentId(applicationContext),
-                statusQuery = { PhoneState.query(networkKind(), isCharging()) },
+                statusQuery = {
+                    PhoneState.query(networkKind(), isCharging()) +
+                        PhoneState.identity(AgentState.phoneName(applicationContext), android.os.Build.MODEL)
+                },
             )
             val loop = AgentLoop(
                 client = client,

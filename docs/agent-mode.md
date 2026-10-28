@@ -81,5 +81,6 @@ mobile data. The agent also tells the laptop whether the phone is on Wi-Fi and c
   app and check the switch.
 - The laptop must be on and the phone must reach it (Tailscale connected on both).
 - The command line cannot run agent pairs, because only the running service talks to the app. Use the window or the app.
-- One agent at a time (one phone) per laptop.
+- Several phones can run the agent at the same time. Each keeps its own history per pair; a pair set to "Any phone"
+  needs exactly one phone app connected, otherwise bind it to one phone in the pair editor.
 - If the app shows "Looking for the laptop", the Tailscale URL in Settings is empty or Tailscale is off.

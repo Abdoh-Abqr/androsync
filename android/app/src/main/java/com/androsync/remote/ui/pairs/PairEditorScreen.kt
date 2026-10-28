@@ -131,7 +131,12 @@ fun PairEditorScreen(
             )
 
             val connected = connectionState as? ConnectionState.Connected
-            val phones = phoneChoices(connected?.devices.orEmpty(), alsoKeep = listOf(uiState.device))
+            val phones = phoneChoices(
+                connected?.devices.orEmpty(),
+                alsoKeep = listOf(uiState.device),
+                agents = connected?.agents.orEmpty(),
+                transport = uiState.transport,
+            )
             val boundName = phones.firstOrNull { it.id == uiState.device }?.label
             val lapName = connected?.laptopName
             Text("Direction", style = MaterialTheme.typography.titleSmall)

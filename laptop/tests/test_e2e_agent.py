@@ -84,8 +84,9 @@ def test_undo_restores_both_sides_through_the_agent(roots, _agent_remote):
     assert (remote / "keep.txt").read_text() == "v2 changed"
     assert not (local / "other.txt").exists()
 
-    run = list_runs(pair.name)[0]
     remote_transport = AgentTransport(_agent_remote.broker, Side.REMOTE, check_root=lambda r: r)
+    # Each phone app keeps its own history (Phase W1), so the runs are under "<pair>@agent-<id>".
+    run = list_runs(f"{pair.name}@{remote_transport.device_key}")[0]
     undo_run(pair, run["run_id"], LocalDirTransport(Side.LOCAL), remote_transport)
     assert (remote / "keep.txt").read_text() == "v1"
     assert (local / "other.txt").read_text() == "phone only"

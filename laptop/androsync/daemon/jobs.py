@@ -30,7 +30,7 @@ from androsync.executor import run_pair
 from androsync.model import Side, Summary
 from androsync.runlog import RunLog
 from androsync.runlog import tee as _tee_log
-from androsync.transport.agent import AgentBroker, AgentTransport
+from androsync.transport.agent import AgentBroker, AgentTransport, agent_id_from_device
 from androsync.transport.base import Transport, TransportCancelled, TransportError
 from androsync.transport.local import LocalDirTransport
 from androsync.undo import UndoError, list_runs_all, undo_run
@@ -161,14 +161,16 @@ class OpenedTransports:
     """The transports a job (or a preview) needs: the laptop side plus a phone side per way of reaching a phone.
 
     A pair with ``transport: adb`` uses the adb transport of the phone it is bound to (``device``, "any" by default),
-    one with ``transport: agent`` uses :attr:`agent_remote` (task 37d, issue #16; per phone: task 33a). A job that
-    only has agent pairs never opens adb, so it works with no phone attached.
+    one with ``transport: agent`` uses the transport of the phone app it is bound to, from :attr:`agent_remotes`
+    (task 37d, issue #16; one app per phone: Phase W2). A job that only has agent pairs never opens adb, so it works
+    with no phone attached.
     """
 
     local: Transport
     #: adb transports by the pair's ``device`` value ("any" or a phone's serial).
     adb_remotes: dict[str, Transport] = field(default_factory=dict)
-    agent_remote: Transport | None = None
+    #: agent transports by the pair's ``device`` value ("any" or ``agent-<id>``).
+    agent_remotes: dict[str, Transport] = field(default_factory=dict)
     #: Why adb could not be opened for a device, when some other pair in the same job did not need it.
     adb_errors: dict[str, Exception] = field(default_factory=dict)
 
@@ -177,18 +179,19 @@ class OpenedTransports:
         return next(iter(self.adb_errors.values()), None)
 
     def remote_for(self, pair: PairConfig) -> Transport:
-        if pair.transport == "agent":
-            if self.agent_remote is None:
-                raise TransportError("agent mode is not available here")
-            return self.agent_remote
         device = pair.device or "any"
+        if pair.transport == "agent":
+            remote = self.agent_remotes.get(device)
+            if remote is None:
+                raise TransportError("agent mode is not available here")
+            return remote
         remote = self.adb_remotes.get(device)
         if remote is None:
             raise self.adb_errors.get(device) or TransportError("no connection to the phone")
         return remote
 
     def all(self) -> list[Transport]:
-        return [t for t in (self.local, *self.adb_remotes.values(), self.agent_remote) if t is not None]
+        return [t for t in (self.local, *self.adb_remotes.values(), *self.agent_remotes.values()) if t is not None]
 
 
 class JobRunner:
@@ -381,11 +384,14 @@ class JobRunner:
             adb_remotes[device] = remote
         if adb_errors and not adb_remotes and not needs_agent:
             raise next(iter(adb_errors.values()))
-        agent_remote = AgentTransport(self._agent_broker) if needs_agent and self._agent_broker is not None else None
+        agent_remotes: dict[str, Transport] = {}
+        if self._agent_broker is not None:
+            for device in {(p.device or "any") for p in pairs if p is not None and p.transport == "agent"}:
+                agent_remotes[device] = AgentTransport(self._agent_broker, agent_id=agent_id_from_device(device))
         return OpenedTransports(
             local=local if local is not None else LocalDirTransport(Side.LOCAL),
             adb_remotes=adb_remotes,
-            agent_remote=agent_remote,
+            agent_remotes=agent_remotes,
             adb_errors=adb_errors,
         )
 
@@ -648,10 +654,14 @@ def job_to_dict(job: Job) -> dict:
     }
 
 
-def pairs_status(config: Config, auto_status: Callable[[str], dict] | None = None) -> list[dict]:
+def pairs_status(
+    config: Config, auto_status: Callable[[str], dict] | None = None, names: dict[str, str] | None = None
+) -> list[dict]:
     """Return one status dict per configured pair, for ``GET /v1/pairs``.
 
     ``auto_status`` (automatic sync, Phase T2) names a pair's automation state for the ``auto_state`` field.
+    ``names`` maps a ``device`` value to a name the daemon knows from the connected phone apps (Phase W2); the user's own
+    ``phones:`` list wins over it.
     """
     result = []
     for pair in config.pairs:
@@ -665,7 +675,10 @@ def pairs_status(config: Config, auto_status: Callable[[str], dict] | None = Non
                 "conflict": pair.conflict,
                 "transport": pair.transport,
                 "device": pair.device,
-                "device_name": (config.phones[pair.device].name or None) if pair.device in config.phones else None,
+                "device_name": (
+                    (config.phones[pair.device].name or None) if pair.device in config.phones else None
+                )
+                or (names or {}).get(pair.device),
                 "auto": pair.auto,
                 "run_conditions": {
                     "wifi_only": pair.run_conditions.wifi_only,

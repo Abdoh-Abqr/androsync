@@ -157,7 +157,11 @@ fun PairsScreen(
     val devices = (connectionState as? ConnectionState.Connected)?.devices.orEmpty()
     val laptopName = (connectionState as? ConnectionState.Connected)?.laptopName
     var phoneFilter by rememberSaveable { mutableStateOf<String?>(null) }
-    val phonesInUse = phoneChoices(devices, alsoKeep = uiState.pairs.map { it.device })
+    val phonesInUse = phoneChoices(
+        devices,
+        alsoKeep = uiState.pairs.map { it.device },
+        agents = (connectionState as? ConnectionState.Connected)?.agents.orEmpty(),
+    )
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },

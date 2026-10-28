@@ -36,7 +36,7 @@ from androsync.conflicts import ConflictsError, clean, list_conflicts, restore
 from androsync.daemon.problems import classify_route, explain_failure
 from androsync.daemon.jobs import JobBusy, JobRunner, current_job_dict, job_to_dict, pairs_status
 from androsync.executor import run_pair
-from androsync.transport.agent import POLL_SECONDS, AgentBroker, AgentBusy, AgentCancelled, AgentTransport
+from androsync.transport.agent import POLL_SECONDS, AgentBroker, AgentCancelled, AgentTransport, agent_id_from_device
 from androsync.model import Side
 from androsync.throttle import Throttle
 from androsync.transport.local import LocalDirTransport
@@ -219,11 +219,26 @@ class _Handler(BaseHTTPRequestHandler):
             "current_job": current_job_dict(self.api._runner.current()),
             "agent": "connected" if self.api.agent.connected() else "absent",
             "agent_route": self.api.agent.route() if self.api.agent.connected() else None,
+            "agents": self._agent_rows(),
         }
         return self._send_json(200, body)
 
+    def _agent_rows(self) -> list[dict]:
+        """The phone apps the laptop has heard from, named by the user's phone list first, then by what the app says."""
+        try:
+            phones = self.api._config_loader().phones
+        except Exception:  # noqa: BLE001 - a broken config must not make the ping fail
+            phones = {}
+        rows = []
+        for row in self.api.agent.agent_infos():
+            registered = phones.get(row["device"])
+            name = (registered.name if registered is not None and registered.name else None) or row["name"] or row["model"]
+            rows.append({**row, "name": name})
+        return rows
+
     def _pairs_json(self, config: Config) -> list[dict]:
-        return pairs_status(config, self.api.auto.status if self.api.auto is not None else None)
+        names = {row["device"]: row["name"] for row in self._agent_rows() if row["name"]}
+        return pairs_status(config, self.api.auto.status if self.api.auto is not None else None, names)
 
     def _h_pairs(self, match: re.Match, query: str) -> int:
         config = self.api._config_loader()
@@ -311,14 +326,11 @@ class _Handler(BaseHTTPRequestHandler):
             return self._send_json(400, {"error": "wait must be a number"})
         params = parse_qs(query)
         agent_id = (params.get("agent") or [None])[0]
-        self.api.agent.report_state((params.get("net") or [None])[0], (params.get("battery") or [None])[0])
-        self.api.agent.report_route(classify_route(self.client_address[0]))
-        try:
-            op = self.api.agent.next_op(max(0.0, min(wait, POLL_SECONDS)), agent_id)
-        except AgentBusy:
-            return self._send_json(
-                409, {"error": "another phone's agent is already connected to this laptop; only one at a time"}
-            )
+        broker = self.api.agent
+        broker.report_state((params.get("net") or [None])[0], (params.get("battery") or [None])[0], agent_id)
+        broker.report_route(classify_route(self.client_address[0]), agent_id)
+        broker.report_identity(agent_id, (params.get("name") or [None])[0], (params.get("model") or [None])[0])
+        op = broker.next_op(max(0.0, min(wait, POLL_SECONDS)), agent_id)
         if op is None:
             return self._send_empty(204)
         return self._send_json(200, op)
@@ -365,7 +377,7 @@ class _Handler(BaseHTTPRequestHandler):
                     if not chunk:
                         break
                     self.wfile.write(chunk)
-                    self.api.agent.touch()
+                    self.api.agent.touch(op.agent_id)
                     throttle.wait(len(chunk))
         except (BrokenPipeError, ConnectionResetError) as exc:
             raise _ClientGone from exc
@@ -391,7 +403,7 @@ class _Handler(BaseHTTPRequestHandler):
                         break
                     handle.write(chunk)
                     received += len(chunk)
-                    self.api.agent.touch()
+                    self.api.agent.touch(op.agent_id)
                     throttle.wait(len(chunk))
         except OSError as exc:
             return self._send_json(500, {"error": f"could not write the file: {exc}"})
@@ -485,15 +497,16 @@ class _Handler(BaseHTTPRequestHandler):
         """
         has_device = self.api._device_info is not None and self.api._device_info().get("device") is not None
         agent_pair = pair is not None and pair.transport == "agent"
+        agent_id = agent_id_from_device(pair.device) if pair is not None else None
         if agent_pair:
-            if not self.api.agent.connected():
+            if not self.api.agent.connected(agent_id):
                 return None, (503, {"error": "the phone app's agent is not connected"})
         elif not has_device and (pair is not None or not self.api.agent.connected()):
             return None, (503, {"error": self._explain_no_phone("phone not connected", pair)})
         if self.api._runner.current() is not None:
             return None, (409, {"error": "busy"})
         if agent_pair or not has_device:  # the phone app's agent does the work (task 37d)
-            return (LocalDirTransport(Side.LOCAL), AgentTransport(self.api.agent)), None
+            return (LocalDirTransport(Side.LOCAL), AgentTransport(self.api.agent, agent_id=agent_id)), None
         config = self.api._config_loader()
         try:
             transports = self.api._runner._transport_factory(config)

@@ -19,6 +19,11 @@ All notable changes to androsync are recorded here. Format loosely follows
   issue form and `docs/support.md`.
 - `androsync service new-token` and a New token button in the window; the config file is now readable by you only.
 
+### Added (several phones)
+- **Several phones' apps at the same time.** Each app has its own mailbox on the laptop, so the tablet, the S24 FE and the Realme can all run the agent without fighting over one slot (no more "409 Conflict" loop).
+- **Each phone app keeps its own history** (`<pair>@agent-<id>`). A second phone with an empty or different folder can no longer make the first phone's files look deleted, which is what produced "It would delete 738 files on the laptop (100%)" for the Obsidian pair. A pair set to "Any phone" with two apps connected stops and names both.
+- The app sends its name (Settings, "This phone's name"; default: the phone's name or model); `/v1/ping` lists the apps under `agents`, and the pair editor offers them in the Phone row for agent pairs.
+
 ### Improved
 - A pair that works over USB or Wi-Fi debugging only now says so first when the phone is connected another way ("This pair works over USB or Wi-Fi debugging only, but the phone is connected over Tailscale right now."), then gives the usual hint. The app also names the connection when it cannot see a phone over adb.
 

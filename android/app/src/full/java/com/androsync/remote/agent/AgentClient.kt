@@ -32,7 +32,7 @@ class AgentClient(
     baseUrl: String,
     private val token: String,
     private val pollWaitSeconds: Int = 25,
-    /** Names this phone's app to the laptop, which lets only one phone's agent work at a time. */
+    /** Names this phone's app to the laptop, which keeps one mailbox and one history per phone (Phase W). */
     private val agentId: String? = null,
     /** Extra query text for each poll, like `&net=wifi&battery=charging`: how the phone is connected and powered. */
     private val statusQuery: () -> String = { "" },

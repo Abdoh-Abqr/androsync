@@ -204,7 +204,10 @@ def claim_legacy(pair_name: str, key: str) -> None:
 def key_for(pair_name: str, remote: object) -> str:
     """The state key for a run against ``remote``: uses the transport's ``device_key`` when it has one."""
     key = state_key(pair_name, getattr(remote, "device_key", None))
-    claim_legacy(pair_name, key)
+    # A phone app may take over the old shared history only while it is the only one the laptop knows: with a second
+    # phone around, whoever came first is not necessarily the phone the history belongs to (Phase W1).
+    if getattr(remote, "claims_legacy_history", True):
+        claim_legacy(pair_name, key)
     return key
 
 

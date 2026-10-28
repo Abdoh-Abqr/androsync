@@ -1,5 +1,6 @@
 package com.androsync.remote.ui.common
 
+import com.androsync.remote.data.api.AgentInfoDto
 import com.androsync.remote.data.api.CurrentJobDto
 import com.androsync.remote.data.api.DeviceStateDto
 import com.androsync.remote.data.settings.Preset
@@ -23,6 +24,8 @@ sealed class ConnectionState {
         val agentConnected: Boolean = false,
         /** What the computer is called, for labels like "Ubuntu ↔ S24 FE" (Phase V2); null from an older laptop. */
         val laptopName: String? = null,
+        /** The phone apps the laptop has heard from (Phase W2): these are the phones an agent pair can be bound to. */
+        val agents: List<AgentInfoDto> = emptyList(),
     ) : ConnectionState()
 
     data class Unreachable(val lastError: String?) : ConnectionState()

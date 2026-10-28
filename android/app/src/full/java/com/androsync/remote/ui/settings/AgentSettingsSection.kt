@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -81,6 +82,16 @@ fun AgentSettingsSection(connectionState: ConnectionState) {
                 },
             )
         }
+        var phoneName by remember { mutableStateOf(AgentState.phoneNameSetting(context)) }
+        OutlinedTextField(
+            value = phoneName,
+            onValueChange = { phoneName = it.take(40); AgentState.setPhoneName(context, phoneName) },
+            label = { Text("This phone's name") },
+            placeholder = { Text(AgentState.phoneName(context)) },
+            supportingText = { Text("Shown on the laptop, for example in \"Ubuntu ↔ S24 FE\". Leave empty to use ${AgentState.phoneName(context)}.") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
         var pauseOnMobile by remember { mutableStateOf(AgentState.pauseOnMobile(context)) }
         Row(
             modifier = Modifier.fillMaxWidth(),

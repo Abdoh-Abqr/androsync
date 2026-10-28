@@ -10,8 +10,9 @@ All requests carry `Authorization: Bearer <token>`, like every other route.
 
 ## The loop the app runs
 
-(`GET /v1/agent/next` may carry `&agent=<id>`, `&net=wifi|mobile|none` and `&battery=charging|discharging`. The laptop remembers the
-last two for automatic sync's run conditions and refuses a second agent id while another agent is connected.)
+(`GET /v1/agent/next` may carry `&agent=<id>`, `&net=wifi|mobile|none`, `&battery=charging|discharging`, `&name=<text>` and
+`&model=<text>` (URL-encoded, at most 40 characters). The laptop remembers `net` and `battery` for automatic sync's run
+conditions, and `name` and `model` to label the phone; `/v1/ping` lists every app it has heard from under `agents`.)
 
 1. `GET /v1/agent/next` (optional `?wait=<seconds>`, at most 25). The laptop holds the request until work exists.
    - `204`, no body: nothing to do. Ask again at once.
@@ -20,7 +21,8 @@ last two for automatic sync's run conditions and refuses a second agent id while
 3. `POST /v1/agent/result/<id>` with `{"ok": true, "result": {...}}` or `{"ok": false, "error": "text"}`.
 4. Go to 1. Keep one request in flight at all times: the laptop calls the agent **connected** (`/v1/ping` says
    `"agent": "connected"`) when it heard from it in the last 45 seconds, or in the last 5 minutes while an operation is
-   out with it. One agent per laptop; one operation at a time.
+   out with it. Every phone's app has its own `agent` id and its own mailbox, so several phones can be connected at once; each
+   gets only the operations meant for it, one at a time. (An app that sends no id shares one mailbox named `default`.)
 
 If any call answers `404` (operation unknown or finished) or `410` (the user pressed Stop), drop the operation and
 poll again. Do not retry it.

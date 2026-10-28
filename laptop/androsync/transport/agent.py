@@ -55,6 +55,7 @@ class _Op:
     download: Path | None = None  # phone -> laptop body, written by PUT blob
     id: str = field(default_factory=lambda: uuid4().hex)
     created: float = 0.0
+    agent_id: str = "default"
     dispatched: bool = False
     cancelled: bool = False
     ok: bool = False
@@ -64,71 +65,182 @@ class _Op:
 
 
 class AgentBusy(Exception):
-    """Another phone's agent already holds this laptop; the HTTP layer answers 409 and the second app waits."""
+    """Kept for old imports. Since several phones may be connected at once (Phase W2) nothing raises it any more."""
 
 
 class AgentCancelled(Exception):
     """Internal: the operation was cancelled (the user pressed Stop); the HTTP layer answers 410."""
 
 
+#: The agent id of an app that does not send one (an old version): all such apps share one mailbox.
+DEFAULT_AGENT = "default"
+#: A pair bound to the app of one phone has ``device: agent-<agent id>``.
+AGENT_DEVICE_PREFIX = "agent-"
+#: An agent that was not heard from for this long is forgotten by :meth:`AgentBroker.agent_infos`.
+FORGET_AFTER = 3600.0
+
+
+def agent_device(agent_id: str) -> str:
+    """The ``device`` value (and history key part) of a phone's app: ``agent-<agent id>``."""
+    return f"{AGENT_DEVICE_PREFIX}{agent_id}"
+
+
+def agent_id_from_device(device: str | None) -> str | None:
+    """The agent id inside a pair's ``device`` value, or ``None`` for ``any``, empty or an adb phone."""
+    if device and device.startswith(AGENT_DEVICE_PREFIX):
+        return device[len(AGENT_DEVICE_PREFIX):]
+    return None
+
+
+@dataclass
+class _Agent:
+    """What the broker knows about one phone's app."""
+
+    id: str
+    queue: deque = field(default_factory=deque)
+    last_seen: float | None = None
+    phone_state: dict[str, Any] = field(default_factory=dict)
+    phone_state_at: float | None = None
+    route: str | None = None
+    name: str | None = None
+    model: str | None = None
+
+    def label(self) -> str:
+        return self.name or self.model or self.id
+
+
 class AgentBroker:
-    """Mailbox between the laptop's job threads and the one agent that is polling."""
+    """Mailboxes between the laptop's job threads and the phones' apps that are polling, one mailbox per phone.
+
+    Every phone app has its own agent id, so two or three phones can be connected at once. An operation is queued for
+    one agent and only that agent can take it (Phase W2).
+    """
 
     def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
         self._clock = clock
         self._cond = threading.Condition()
-        self._queue: deque[_Op] = deque()
+        self._agents: dict[str, _Agent] = {}
         self._ops: dict[str, _Op] = {}
-        self._last_seen: float | None = None
-        #: Who is polling: only one phone's agent at a time, or an operation meant for one phone could be done by another.
-        self._active_agent: str | None = None
-        #: What the agent last said about its phone (network kind, charging), and when (Phase T3).
-        self._phone_state: dict[str, Any] = {}
-        self._phone_state_at: float | None = None
-        #: How the agent's last request arrived: usb, tailscale, lan or other (Phase V3), for the error texts.
-        self._route: str | None = None
 
     # -- state ------------------------------------------------------------------------------------------------
 
-    def touch(self) -> None:
-        """Note that the agent just did something (any request, or a chunk of a body)."""
-        with self._cond:
-            self._last_seen = self._clock()
+    def _agent(self, agent_id: str | None) -> _Agent:
+        """The record of ``agent_id`` (made when new). Call with the lock held."""
+        key = agent_id or DEFAULT_AGENT
+        agent = self._agents.get(key)
+        if agent is None:
+            agent = self._agents[key] = _Agent(id=key)
+        return agent
 
-    def connected(self) -> bool:
+    def _is_connected(self, agent: _Agent) -> bool:
+        """Heard from recently, or busy with a long transfer. Call with the lock held."""
+        if agent.last_seen is None:
+            return False
+        silent = self._clock() - agent.last_seen
+        if silent <= CONNECTED_GRACE:
+            return True
+        busy = any(op.agent_id == agent.id and op.dispatched and not op.done.is_set() for op in self._ops.values())
+        return busy and silent <= BUSY_GRACE
+
+    def _latest(self) -> _Agent | None:
+        """The connected agent heard from most recently. Call with the lock held."""
+        live = [a for a in self._agents.values() if self._is_connected(a)]
+        return max(live, key=lambda a: a.last_seen or 0.0) if live else None
+
+    def touch(self, agent_id: str | None = None) -> None:
+        """Note that an agent just did something (any request, or a chunk of a body)."""
         with self._cond:
-            if self._last_seen is None:
-                return False
-            silent = self._clock() - self._last_seen
-            if silent <= CONNECTED_GRACE:
-                return True
-            busy = any(op.dispatched and not op.done.is_set() for op in self._ops.values())
-            return busy and silent <= BUSY_GRACE
+            agent = self._agent(agent_id) if agent_id else self._latest()
+            if agent is not None:
+                agent.last_seen = self._clock()
+
+    def connected(self, agent_id: str | None = None) -> bool:
+        """Whether ``agent_id``'s app is connected, or (no id) whether any app is."""
+        with self._cond:
+            if agent_id:
+                agent = self._agents.get(agent_id)
+                return agent is not None and self._is_connected(agent)
+            return any(self._is_connected(a) for a in self._agents.values())
+
+    def connected_ids(self) -> list[str]:
+        """The ids of the connected agents, most recently heard first."""
+        with self._cond:
+            live = [a for a in self._agents.values() if self._is_connected(a)]
+            return [a.id for a in sorted(live, key=lambda a: a.last_seen or 0.0, reverse=True)]
+
+    def resolve(self, agent_id: str | None = None) -> str:
+        """The agent to talk to: ``agent_id`` itself, or (none given) the only connected one.
+
+        Raises :class:`TransportError` when none is connected, or when several are and the pair is not bound to one.
+        """
+        if agent_id:
+            return agent_id
+        with self._cond:
+            live = [a for a in self._agents.values() if self._is_connected(a)]
+            if not live:
+                raise TransportError(NOT_CONNECTED)
+            if len(live) > 1:
+                names = ", ".join(sorted(a.label() for a in live))
+                raise TransportError(
+                    f"more than one phone app is connected ({names}). Bind this pair to one phone in its settings. "
+                    "Nothing was synced."
+                )
+            return live[0].id
+
+    def agent_infos(self) -> list[dict[str, Any]]:
+        """One row per phone app seen in the last hour, for ``/v1/ping``: id, device value, name, model, route, connected."""
+        with self._cond:
+            now = self._clock()
+            rows = []
+            for agent in self._agents.values():
+                if agent.last_seen is None or now - agent.last_seen > FORGET_AFTER:
+                    continue
+                rows.append(
+                    {
+                        "id": agent.id,
+                        "device": agent_device(agent.id),
+                        "name": agent.name,
+                        "model": agent.model,
+                        "route": agent.route,
+                        "connected": self._is_connected(agent),
+                    }
+                )
+            return sorted(rows, key=lambda r: (not r["connected"], r["name"] or r["model"] or r["id"]))
+
+    def report_identity(self, agent_id: str | None, name: str | None, model: str | None) -> None:
+        """The app says what the phone is called (query parameters ``name`` and ``model`` of ``GET /v1/agent/next``)."""
+        with self._cond:
+            agent = self._agent(agent_id)
+            if name:
+                agent.name = name[:40]
+            if model:
+                agent.model = model[:40]
+
+    def report_route(self, route: str | None, agent_id: str | None = None) -> None:
+        with self._cond:
+            self._agent(agent_id).route = route
+
+    def route(self, agent_id: str | None = None) -> str | None:
+        """``usb``, ``tailscale``, ``lan`` or ``other`` for the agent's last poll (no id: the latest connected one)."""
+        with self._cond:
+            agent = self._agents.get(agent_id) if agent_id else self._latest()
+            return agent.route if agent is not None else None
 
     # -- agent side -------------------------------------------------------------------------------------------
 
     def next_op(self, wait: float = POLL_SECONDS, agent_id: str | None = None) -> dict[str, Any] | None:
-        """Hand the agent its next operation, waiting up to ``wait`` seconds; ``None`` means "nothing yet".
-
-        ``agent_id`` names the phone's app. While one agent is connected, a different one is refused with
-        :class:`AgentBusy`; it can take over once the first has been silent for a while.
-        """
+        """Hand the agent its next operation, waiting up to ``wait`` seconds; ``None`` means "nothing yet"."""
         deadline = self._clock() + wait
         with self._cond:
-            if agent_id:
-                silent = None if self._last_seen is None else self._clock() - self._last_seen
-                held = self._active_agent is not None and self._active_agent != agent_id
-                if held and silent is not None and silent <= CONNECTED_GRACE:
-                    raise AgentBusy(self._active_agent)
-                self._active_agent = agent_id
-            self._last_seen = self._clock()
+            agent = self._agent(agent_id)
+            agent.last_seen = self._clock()
             while True:
-                while self._queue:
-                    op = self._queue.popleft()
+                while agent.queue:
+                    op = agent.queue.popleft()
                     if op.cancelled:
                         continue
                     op.dispatched = True
-                    self._last_seen = self._clock()
+                    agent.last_seen = self._clock()
                     return {
                         "id": op.id,
                         "op": op.name,
@@ -138,34 +250,30 @@ class AgentBroker:
                     }
                 remaining = deadline - self._clock()
                 if remaining <= 0:
-                    self._last_seen = self._clock()
+                    agent.last_seen = self._clock()
                     return None
                 self._cond.wait(min(remaining, 0.5))
 
-    def report_state(self, net: str | None, battery: str | None) -> None:
+    def report_state(self, net: str | None, battery: str | None, agent_id: str | None = None) -> None:
         """The agent says how its phone is connected and powered (query parameters of ``GET /v1/agent/next``)."""
         with self._cond:
+            agent = self._agent(agent_id)
             if net in ("wifi", "mobile", "none"):
-                self._phone_state["net"] = net
+                agent.phone_state["net"] = net
             if battery in ("charging", "discharging"):
-                self._phone_state["charging"] = battery == "charging"
-            self._phone_state_at = self._clock()
+                agent.phone_state["charging"] = battery == "charging"
+            agent.phone_state_at = self._clock()
 
-    def report_route(self, route: str | None) -> None:
+    def phone_state(self, agent_id: str | None = None, max_age: float = 120.0) -> dict[str, Any]:
+        """``{"net": ..., "charging": ...}`` as last reported (no id: by the latest connected agent), or ``{}``."""
         with self._cond:
-            self._route = route
-
-    def route(self) -> str | None:
-        """``usb``, ``tailscale``, ``lan`` or ``other`` for the agent's last poll; ``None`` before the first one."""
-        with self._cond:
-            return self._route
-
-    def phone_state(self, max_age: float = 120.0) -> dict[str, Any]:
-        """``{"net": ..., "charging": ...}`` as last reported, or ``{}`` when nothing recent is known."""
-        with self._cond:
-            if self._phone_state_at is None or self._clock() - self._phone_state_at > max_age:
+            agent = self._agents.get(agent_id) if agent_id else self._latest()
+            if agent is None and not agent_id:  # nobody is connected: whoever reported most recently
+                reported = [a for a in self._agents.values() if a.phone_state_at is not None]
+                agent = max(reported, key=lambda a: a.phone_state_at or 0.0) if reported else None
+            if agent is None or agent.phone_state_at is None or self._clock() - agent.phone_state_at > max_age:
                 return {}
-            return dict(self._phone_state)
+            return dict(agent.phone_state)
 
     def find(self, op_id: str) -> _Op:
         """The live operation ``op_id``; ``KeyError`` if unknown or finished, :class:`AgentCancelled` if stopped."""
@@ -175,7 +283,7 @@ class AgentBroker:
                 raise KeyError(op_id)
             if op.cancelled:
                 raise AgentCancelled(op_id)
-            self._last_seen = self._clock()
+            self._agent(op.agent_id).last_seen = self._clock()
             return op
 
     def complete(self, op_id: str, ok: bool, result: Any = None, error: str | None = None) -> None:
@@ -189,7 +297,7 @@ class AgentBroker:
             op.ok = bool(ok)
             op.result = result
             op.error = None if ok else (error or "the agent reported an error")
-            self._last_seen = self._clock()
+            self._agent(op.agent_id).last_seen = self._clock()
             op.done.set()
 
     # -- laptop side ------------------------------------------------------------------------------------------
@@ -199,23 +307,25 @@ class AgentBroker:
         name: str,
         args: dict[str, Any],
         *,
+        agent_id: str | None = None,
         upload: Path | None = None,
         download: Path | None = None,
         aborted: Callable[[], bool] = lambda: False,
     ) -> Any:
-        """Queue one operation and wait for the agent's answer.
+        """Queue one operation for ``agent_id`` (none: the only connected agent) and wait for the answer.
 
         Raises :class:`TransportCancelled` when ``aborted()`` turns true, :class:`TransportError` when the agent is
         absent, does not pick the operation up, goes silent, or reports an error.
         """
         if aborted():
             raise TransportCancelled("cancelled")
-        if not self.connected():
+        target = self.resolve(agent_id)
+        if not self.connected(target):
             raise TransportError(NOT_CONNECTED)
-        op = _Op(name=name, args=args, upload=upload, download=download, created=self._clock())
+        op = _Op(name=name, args=args, upload=upload, download=download, created=self._clock(), agent_id=target)
         with self._cond:
             self._ops[op.id] = op
-            self._queue.append(op)
+            self._agent(target).queue.append(op)
             self._cond.notify_all()
         try:
             while not op.done.wait(0.2):
@@ -225,7 +335,7 @@ class AgentBroker:
                 if not op.dispatched and self._clock() - op.created > DISPATCH_TIMEOUT:
                     self._cancel(op)
                     raise TransportError(f"the phone app did not pick up {name!r} within {DISPATCH_TIMEOUT:.0f} s")
-                if op.dispatched and not self.connected():
+                if op.dispatched and not self.connected(target):
                     self._cancel(op)
                     raise TransportError(f"the phone app went silent during {name!r}")
             if op.cancelled:
@@ -241,7 +351,7 @@ class AgentBroker:
         with self._cond:
             op.cancelled = True
             try:
-                self._queue.remove(op)
+                self._agent(op.agent_id).queue.remove(op)
             except ValueError:
                 pass
             op.done.set()
@@ -263,9 +373,13 @@ class AgentTransport(Transport):
         side: Side = Side.REMOTE,
         *,
         check_root: Callable[[str], str] | None = None,
+        agent_id: str | None = None,
     ) -> None:
         super().__init__(side)
         self._broker = broker
+        #: The phone app this transport talks to. ``None`` means "the only connected one", decided on first use and
+        #: then kept, so a second phone connecting in the middle of a sync can never take over (Phase W1).
+        self._agent_id = agent_id
         self._check_root = check_root if check_root is not None else self._default_check
         self._aborted = threading.Event()
 
@@ -278,12 +392,31 @@ class AgentTransport(Transport):
 
     # -- plumbing ---------------------------------------------------------------------------------------------
 
+    def _target(self) -> str:
+        if self._agent_id is None:
+            self._agent_id = self._broker.resolve(None)
+        return self._agent_id
+
+    @property
+    def device_key(self) -> str:
+        """The history key part of this phone's app (``agent-<id>``), so each phone keeps its own history (Phase W1).
+
+        Raises :class:`TransportError` when no app, or more than one without a choice, can be picked.
+        """
+        return agent_device(self._target())
+
+    @property
+    def claims_legacy_history(self) -> bool:
+        """Whether this app may take over a pair's old shared (phone-less) history: only when it is the only app known."""
+        return len(self._broker.agent_infos()) <= 1
+
     def _call(self, name: str, args: dict[str, Any], **kwargs: Any) -> Any:
-        return self._broker.call(name, args, aborted=self._aborted.is_set, **kwargs)
+        return self._broker.call(name, args, agent_id=self._target(), aborted=self._aborted.is_set, **kwargs)
 
     def abort(self) -> None:
         self._aborted.set()
-        self._broker.cancel_ops(lambda op: True)
+        agent_id = self._agent_id
+        self._broker.cancel_ops(lambda op: agent_id is None or op.agent_id == agent_id)
 
     def _root(self, root: str) -> str:
         return self._check_root(root)

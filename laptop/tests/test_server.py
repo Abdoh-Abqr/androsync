@@ -170,7 +170,7 @@ def test_ping_returns_name_version_and_device_info(tmp_path):
     with _Server(config, device_info=lambda: {"transport": "usb", "device": "ABC123"}) as srv:
         status, body = srv.request("GET", "/v1/ping")
         assert status == 200
-        assert body == {"name": "androsync", "version": "0.1.0-test", "transport": "usb", "device": "ABC123", "devices": [], "current_job": None, "agent": "absent", "agent_route": None, "laptop_name": body["laptop_name"]}
+        assert body == {"name": "androsync", "version": "0.1.0-test", "transport": "usb", "device": "ABC123", "devices": [], "current_job": None, "agent": "absent", "agent_route": None, "laptop_name": body["laptop_name"], "agents": []}
         assert body["laptop_name"]
 
 

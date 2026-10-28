@@ -18,6 +18,23 @@ object AgentState {
     private const val KEY_ENABLED = "enabled"
     private const val KEY_ID = "agent_id"
     private const val KEY_PAUSE_MOBILE = "pause_on_mobile"
+    private const val KEY_NAME = "phone_name"
+
+    /** What the user called this phone in the app, or "" for "use the phone's own name". */
+    fun phoneNameSetting(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_NAME, "") ?: ""
+
+    fun setPhoneName(context: Context, name: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_NAME, name.trim().take(40)).apply()
+    }
+
+    /** The name the laptop shows: the user's own, else the name in the phone's settings, else the model. */
+    fun phoneName(context: Context): String {
+        val own = phoneNameSetting(context)
+        if (own.isNotBlank()) return own
+        val device = runCatching { android.provider.Settings.Global.getString(context.contentResolver, "device_name") }.getOrNull()
+        return device?.takeIf { it.isNotBlank() } ?: android.os.Build.MODEL
+    }
 
     /** "Pause on mobile data": when on, the agent does not poll or work while the phone uses mobile data. */
     fun pauseOnMobile(context: Context): Boolean =

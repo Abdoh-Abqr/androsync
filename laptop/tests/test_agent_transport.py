@@ -294,39 +294,95 @@ def test_an_app_that_goes_silent_mid_operation_fails_the_call(monkeypatch, env):
     env.agent.hold.set()
 
 
-# --- only one phone's agent at a time --------------------------------------------------------------------------
+# --- several phones' apps at the same time (Phase W2) -------------------------------------------------------
 
 
-def test_a_second_agent_is_refused_while_the_first_is_connected():
-    from androsync.transport.agent import AgentBroker, AgentBusy
+def test_two_apps_can_be_connected_and_each_gets_only_its_own_work():
+    from androsync.transport.agent import AgentBroker
 
     now = [0.0]
     broker = AgentBroker(clock=lambda: now[0])
-    assert broker.next_op(0, "phone-a") is None  # phone A is now the active agent
-    with pytest.raises(AgentBusy):
-        broker.next_op(0, "phone-b")
-    assert broker.next_op(0, "phone-a") is None  # A keeps working
+    assert broker.next_op(0, "phone-a") is None
+    assert broker.next_op(0, "phone-b") is None  # no 409 any more
+    assert broker.connected("phone-a") and broker.connected("phone-b")
+    assert sorted(broker.connected_ids()) == ["phone-a", "phone-b"]
+
+    results = {}
+
+    def ask(agent_id):
+        results[agent_id] = broker.call("exists", {"root": "/x"}, agent_id=agent_id)
+
+    import threading
+
+    threads = [threading.Thread(target=ask, args=(a,)) for a in ("phone-a", "phone-b")]
+    for t in threads:
+        t.start()
+    for agent_id in ("phone-a", "phone-b"):
+        op = broker.next_op(5, agent_id)
+        assert op is not None and op["op"] == "exists"
+        broker.complete(op["id"], True, {"exists": agent_id == "phone-a"})
+    for t in threads:
+        t.join(5)
+    assert results == {"phone-a": {"exists": True}, "phone-b": {"exists": False}}
 
 
-def test_a_second_agent_can_take_over_after_the_first_went_silent():
-    from androsync.transport import agent as agent_module
+def test_without_a_choice_the_only_connected_app_is_used_and_two_are_refused_by_name():
+    from androsync.transport.agent import AgentBroker, NOT_CONNECTED
+    from androsync.transport.base import TransportError
+
+    now = [0.0]
+    broker = AgentBroker(clock=lambda: now[0])
+    with pytest.raises(TransportError, match="not connected"):
+        broker.resolve(None)
+    broker.next_op(0, "phone-a")
+    assert broker.resolve(None) == "phone-a"
+    broker.report_identity("phone-a", "S24 FE", "SM-S721B")
+    broker.report_identity("phone-b", None, "Tab S9")
+    broker.next_op(0, "phone-b")
+    with pytest.raises(TransportError, match=r"more than one phone app is connected \(S24 FE, Tab S9\)"):
+        broker.resolve(None)
+    assert broker.resolve("phone-b") == "phone-b"
+
+
+def test_each_app_has_its_own_history_key_and_the_choice_is_kept_for_the_whole_sync():
+    from androsync.transport.agent import AgentBroker, AgentTransport, agent_device, agent_id_from_device
+
+    now = [0.0]
+    broker = AgentBroker(clock=lambda: now[0])
+    broker.next_op(0, "phone-a")
+    sole = AgentTransport(broker, check_root=lambda r: r)
+    assert sole.device_key == agent_device("phone-a") == "agent-phone-a"
+    broker.next_op(0, "phone-b")  # a second phone appears in the middle: the first choice stands
+    assert sole.device_key == "agent-phone-a"
+    assert AgentTransport(broker, agent_id="phone-b").device_key == "agent-phone-b"
+    assert agent_id_from_device("agent-phone-b") == "phone-b"
+    assert agent_id_from_device("any") is None and agent_id_from_device("RZ123") is None
+
+
+def test_ping_lists_every_app_with_its_name_and_route():
     from androsync.transport.agent import AgentBroker
 
     now = [0.0]
     broker = AgentBroker(clock=lambda: now[0])
     broker.next_op(0, "phone-a")
-    now[0] += agent_module.CONNECTED_GRACE + 1
-    assert broker.next_op(0, "phone-b") is None  # no error: B is the active agent now
+    broker.report_identity("phone-a", "S24 FE", "SM-S721B")
+    broker.report_route("tailscale", "phone-a")
+    broker.next_op(0, "phone-b")
+    now[0] += 100  # b is the only one that stays connected? both are stale now
+    broker.next_op(0, "phone-b")
+    rows = {r["id"]: r for r in broker.agent_infos()}
+    assert rows["phone-a"]["name"] == "S24 FE" and rows["phone-a"]["route"] == "tailscale"
+    assert rows["phone-a"]["connected"] is False and rows["phone-b"]["connected"] is True
+    assert rows["phone-a"]["device"] == "agent-phone-a"
 
 
-def test_the_http_answer_for_a_busy_laptop_is_409(env):
-    import urllib.error
-
-    assert env.agent.agent_id  # the fake agent identifies itself
-    with pytest.raises(urllib.error.HTTPError) as err:
-        env.get("/v1/agent/next?wait=0&agent=some-other-phone")
-    assert err.value.code == 409
-    assert "another phone" in json.loads(err.value.read())["error"]
+def test_the_http_poll_is_never_refused_and_records_the_name(env):
+    status = env.get("/v1/agent/next?wait=0&agent=some-other-phone&name=Tablet&model=SM-X").status
+    assert status in (200, 204)  # no 409
+    _, ping = env.request("GET", "/v1/ping")
+    rows = {r["id"]: r for r in ping["agents"]}
+    assert rows["some-other-phone"]["name"] == "Tablet"
+    assert ping["agent"] == "connected"
 
 
 def test_an_agent_that_does_not_identify_itself_is_not_blocked(env):

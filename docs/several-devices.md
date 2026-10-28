@@ -26,10 +26,10 @@ time, and either phone sees it running and can stop it. Each phone keeps its own
 goes to the laptop on that phone's next sync and reaches the other phone on its next sync. Both phones syncing the same
 laptop folder is fine; keep an eye on conflicts if both change the same file.
 
-- **Agent mode: one phone's agent at a time.** The laptop lets only one agent work at once, so an operation meant for one
-  phone can never be done by the other. The second phone's app shows "another phone's agent is already connected" and
-  takes over after the first has been silent for about a minute. Use USB or Wi-Fi debugging (adb) when both phones must
-  sync in the same session.
+- **Agent mode: every phone's app is its own phone.** Each app has its own id and its own history per pair, so a second
+  phone with an empty or different folder can never make the first phone's files look deleted. A pair set to "Any
+  phone" needs exactly one app connected; with two connected it stops and names both, so bind the pair to one phone
+  (the Phone row in the pair editor). An app is named in Settings ("This phone's name") and the laptop shows that name.
 - **A new token** (Settings, "Generate a new token") locks out every other phone until it scans the QR code again.
 
 ## Two laptops on one phone

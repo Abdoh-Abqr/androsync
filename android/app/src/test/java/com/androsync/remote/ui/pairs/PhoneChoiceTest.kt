@@ -1,5 +1,6 @@
 package com.androsync.remote.ui.pairs
 
+import com.androsync.remote.data.api.AgentInfoDto
 import com.androsync.remote.data.api.DeviceStateDto
 import com.androsync.remote.data.api.PairDto
 import org.junit.Assert.assertEquals
@@ -16,6 +17,31 @@ class PhoneChoiceTest {
     fun `ready phones are offered, by name when they have one, by id otherwise`() {
         val devices = listOf(dev("USB1", id = "HW_A", name = "S24 FE"), dev("USB2", id = "HW_B"), dev("USB3", state = "offline", id = "HW_C"))
         assertEquals(listOf(PhoneChoice("HW_A", "S24 FE"), PhoneChoice("HW_B", "HW_B")), phoneChoices(devices))
+    }
+
+    @Test
+    fun `phone apps are offered for agent pairs and adb phones for adb pairs`() {
+        val devices = listOf(dev("USB1", id = "HW_A", name = "S24 FE"))
+        val agents = listOf(
+            AgentInfoDto(id = "t1", device = "agent-t1", name = "Tab S9", connected = true),
+            AgentInfoDto(id = "r1", device = "agent-r1", model = "RMX3", connected = true),
+            AgentInfoDto(id = "old", device = "agent-old", name = "Old", connected = false),
+        )
+        assertEquals(
+            listOf(PhoneChoice("agent-t1", "Tab S9"), PhoneChoice("agent-r1", "RMX3")),
+            phoneChoices(devices, agents = agents, transport = "agent"),
+        )
+        assertEquals(listOf(PhoneChoice("HW_A", "S24 FE")), phoneChoices(devices, agents = agents, transport = "adb"))
+        assertEquals(3, phoneChoices(devices, agents = agents).size)
+    }
+
+    @Test
+    fun `a bound phone app that is offline keeps its name`() {
+        val agents = listOf(AgentInfoDto(id = "old", device = "agent-old", name = "Old", connected = false))
+        assertEquals(
+            listOf(PhoneChoice("agent-old", "Old")),
+            phoneChoices(emptyList(), alsoKeep = listOf("agent-old"), agents = agents, transport = "agent"),
+        )
     }
 
     @Test

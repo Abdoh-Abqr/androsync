@@ -1,5 +1,6 @@
 package com.androsync.remote.ui.pairs
 
+import com.androsync.remote.data.api.AgentInfoDto
 import com.androsync.remote.data.api.DeviceStateDto
 import com.androsync.remote.data.api.PairDto
 
@@ -12,20 +13,38 @@ data class PhoneChoice(val id: String, val label: String)
  * The phones to offer: every ready phone the laptop sees, plus [alsoKeep] (the phone a pair is already bound to, even if
  * it is not attached right now, so editing such a pair never silently rebinds it). Named phones show their name.
  */
-fun phoneChoices(devices: List<DeviceStateDto>, alsoKeep: List<String> = emptyList()): List<PhoneChoice> {
+fun phoneChoices(
+    devices: List<DeviceStateDto>,
+    alsoKeep: List<String> = emptyList(),
+    agents: List<AgentInfoDto> = emptyList(),
+    /** "adb" lists only the phones adb sees, "agent" only the phone apps, null both (Phase W2). */
+    transport: String? = null,
+): List<PhoneChoice> {
     val byId = linkedMapOf<String, PhoneChoice>()
-    for (d in devices) {
-        if (d.state != "device") continue
-        val id = d.id ?: d.serial
-        byId.putIfAbsent(id, PhoneChoice(id, d.name ?: id))
+    if (transport != "agent") {
+        for (d in devices) {
+            if (d.state != "device") continue
+            val id = d.id ?: d.serial
+            byId.putIfAbsent(id, PhoneChoice(id, d.name ?: id))
+        }
+    }
+    if (transport != "adb") {
+        for (a in agents) {
+            if (!a.connected) continue
+            byId.putIfAbsent(a.device, PhoneChoice(a.device, agentLabel(a)))
+        }
     }
     for (id in alsoKeep) {
         if (id == ANY_PHONE || id.isBlank() || id in byId) continue
-        val known = devices.firstOrNull { (it.id ?: it.serial) == id }
-        byId[id] = PhoneChoice(id, known?.name ?: "$id (not connected)")
+        val known = devices.firstOrNull { (it.id ?: it.serial) == id }?.name
+            ?: agents.firstOrNull { it.device == id }?.let { agentLabel(it) }
+        byId[id] = PhoneChoice(id, known ?: "$id (not connected)")
     }
     return byId.values.toList()
 }
+
+/** A phone app's label: its name, else its model, else its id. */
+fun agentLabel(agent: AgentInfoDto): String = agent.name ?: agent.model ?: agent.id
 
 /** The name to show on a pair card for the phone it is bound to, or null for "any". */
 fun phoneLabel(deviceId: String, devices: List<DeviceStateDto>): String? {

@@ -40,7 +40,7 @@ from androsync.daemon.server import ApiServer
 from androsync.model import Side
 from androsync.service_state import remove_pid_file, write_pid_file
 from androsync.transport.adb import Adb, AdbTransport, hardware_serial, phone_model, resolve_device, resolve_pair_device
-from androsync.transport.agent import AgentBroker
+from androsync.transport.agent import AgentBroker, agent_id_from_device
 from androsync.transport.local import LocalDirTransport
 
 _LOG = logging.getLogger(__name__)
@@ -345,7 +345,7 @@ class Daemon:
     def _auto_phone_available(self, pair) -> bool:  # noqa: ANN001 - PairConfig
         """Whether the phone a pair needs can be reached now; an absent phone is waited for, never counted as a failure."""
         if pair.transport == "agent":
-            return self.agent_broker.connected()
+            return self.agent_broker.connected(agent_id_from_device(pair.device))
         watcher = self._watcher
         ready = [s for s, st in (dict(watcher.devices).items() if watcher is not None else []) if st == "device"]
         if not ready:
@@ -361,7 +361,7 @@ class Daemon:
         of the dict, and run conditions never block on what is not known.
         """
         if pair.transport == "agent":
-            return self.agent_broker.phone_state()
+            return self.agent_broker.phone_state(agent_id_from_device(pair.device))
         watcher = self._watcher
         ready = [s for s, st in (dict(watcher.devices).items() if watcher is not None else []) if st == "device"]
         if not ready:

@@ -26,8 +26,21 @@ data class PingDto(
     val devices: List<DeviceStateDto> = emptyList(),
     /** What the computer is called (`service.name`, else its host name); older laptops do not send it. */
     @SerialName("laptop_name") val laptopName: String? = null,
+    /** Every phone app the laptop has heard from, each with its own id (Phase W2); empty from an older laptop. */
+    val agents: List<AgentInfoDto> = emptyList(),
     /** "connected" when the phone app's agent is polling the laptop (task 37b), else "absent". */
     val agent: String? = null,
+)
+
+/** One phone's app, as the laptop knows it. [device] is the value a pair bound to this phone's app holds. */
+@Serializable
+data class AgentInfoDto(
+    val id: String,
+    val device: String,
+    val name: String? = null,
+    val model: String? = null,
+    val route: String? = null,
+    val connected: Boolean = false,
 )
 
 /** One phone as adb sees it: [state] is "device" (ready), "unauthorized" (waiting for Allow) or "offline". */
