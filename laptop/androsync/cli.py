@@ -18,6 +18,7 @@ from typing import Callable
 
 from androsync import __version__, config_edit, service, service_state, undo, versioning
 from androsync.runlog import RunLog, tee as _tee_log
+from androsync.cli_app import add_app_commands
 from androsync.cli_conflicts import add_conflicts_commands
 from androsync.cli_pairs import add_pair_commands
 from androsync.cli_phones import add_phone_commands
@@ -168,6 +169,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_pair_commands(subparsers, common)
     add_conflicts_commands(subparsers, common)
     add_phone_commands(subparsers, common)
+    add_app_commands(subparsers, common)
 
     bundle_p = subparsers.add_parser(
         "support-bundle",

@@ -20,3 +20,6 @@ docs/architecture/architecture.html
 
 # the logo as it was delivered (with its own metadata); branding/logo.png is the cleaned master
 branding/original/
+
+# the signed APK that the release workflow copies in (scripts/bundle_apk.py)
+laptop/androsync/assets/apk/

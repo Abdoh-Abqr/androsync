@@ -67,6 +67,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Put the signed full APK into the package (androsync app install)
+        run: |
+          apk="$(ls android/app/build/outputs/apk/full/release/*.apk | head -1)"
+          case "$apk" in
+            *unsigned*) echo "Unsigned dry run: the APK is not bundled." ;;
+            *) python3 scripts/bundle_apk.py "$apk" ;;
+          esac
       - name: Build the Python package
         run: |
           pip install build

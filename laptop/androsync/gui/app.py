@@ -23,7 +23,7 @@ from androsync.config import Config, ConfigError, default_config_path, load_conf
 from androsync.daemon.watcher import Daemon
 from androsync.apiclient import ApiError
 from androsync.gui.backend import Backend, reachable_client
-from androsync.gui.dialogs import AboutDialog, PairEditorDialog, QrDialog, ShareDialog, SupportDialog
+from androsync.gui.dialogs import AboutDialog, AppInstallDialog, PairEditorDialog, QrDialog, ShareDialog, SupportDialog
 from androsync.gui.log_panel import LogPanel
 from androsync.gui.logic import (
     close_window_decision,
@@ -66,6 +66,7 @@ class App:
             label="Report a problem...",
             command=lambda: SupportDialog(self._root, config_path=default_config_path(), version=self._version),
         )
+        help_menu.add_command(label="Install the app on a phone...", command=self._on_install_app)
         help_menu.add_command(label="Share AndroSync...", command=lambda: ShareDialog(self._root))
         help_menu.add_command(label="About AndroSync", command=lambda: AboutDialog(self._root, version=self._version))
         menubar.add_cascade(label="Help", menu=help_menu)
@@ -270,6 +271,16 @@ class App:
         QrDialog(
             self._root, token=config.service.token, urls=service.build_urls(config), on_new_token=self._on_new_token
         )
+
+    def _on_install_app(self) -> None:
+        def share_link() -> dict:
+            config = self._config()
+            client = reachable_client(config, self._state) if config is not None else None
+            if client is None:
+                raise ApiError(0, "Start the service first (Run here), then ask for the link again.")
+            return client._request("POST", "/v1/app/share")
+
+        AppInstallDialog(self._root, share_fn=share_link)
 
     def _on_new_token(self) -> None:
         """Make a new token through the running service (it switches at once), or in the file if nothing is running."""

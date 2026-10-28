@@ -18,7 +18,9 @@ from typing import Callable
 from androsync.browse import BrowseError, BrowseResult
 from androsync import service, support
 from androsync.config import DIRECTIONS, CONFLICT_POLICIES, TRANSPORT_MODES, PairConfig
-from androsync import share
+from androsync import app_install, share
+from androsync.apiclient import ApiError
+from androsync.app_install import AppInstallError
 from androsync.gui.logic import ANY_PHONE, ANY_PHONE_LABEL, direction_label
 from androsync.phone_path import PhonePathError, check_remote, normalize_remote, validate_remote
 
@@ -495,6 +497,88 @@ class ShareDialog(tk.Toplevel):
         self.clipboard_clear()
         self.clipboard_append(share.SHARE_TEXT)
         self._status.configure(text="Copied.")
+
+
+class AppInstallDialog(tk.Toplevel):
+    """Help, "Install the app on a phone": install or update over adb, or show a one-time link and QR (Phase W4)."""
+
+    def __init__(self, master: tk.Widget, *, share_fn: Callable[[], dict]) -> None:
+        super().__init__(master)
+        self.title("Install the app on a phone")
+        self.transient(master)
+        self.resizable(False, False)
+        self._share_fn = share_fn
+        self._status = tk.StringVar()
+        ttk.Label(self, textvariable=self._status, wraplength=420, justify="left").grid(row=0, column=0, padx=16, pady=(16, 8))
+        buttons = ttk.Frame(self)
+        buttons.grid(row=1, column=0, pady=8)
+        self._install_btn = ttk.Button(buttons, text="Install / update on attached phones", command=self._install)
+        self._install_btn.pack(side="left", padx=4)
+        ttk.Button(buttons, text="Link and QR for a phone without adb", command=self._share).pack(side="left", padx=4)
+        self._link = ttk.Label(self, text="", wraplength=420, justify="left")
+        self._link.grid(row=2, column=0, padx=16)
+        self._qr_frame = ttk.Frame(self)
+        self._qr_frame.grid(row=3, column=0, pady=4)
+        ttk.Button(self, text="Close", command=self.destroy).grid(row=4, column=0, pady=12)
+        self._refresh()
+
+    def _refresh(self) -> None:
+        try:
+            app = app_install.bundled_app()
+            serials = app_install.ready_phones()
+        except AppInstallError as exc:
+            self._status.set(str(exc))
+            return
+        lines = [f"This install carries AndroSync {app.version_name}." if app else app_install.missing_text()]
+        for serial in serials:
+            try:
+                installed = app_install.installed_app(serial)
+            except AppInstallError as exc:
+                lines.append(f"{serial}: {exc}")
+                continue
+            lines.append(f"{serial}: " + (f"installed {installed.version_name}" if installed else "not installed"))
+        if not serials:
+            lines.append("No phone is attached by adb. Use the link below, or plug one in with USB debugging on.")
+        self._status.set("\n".join(lines))
+        self._install_btn.state(["!disabled"] if app and serials else ["disabled"])
+
+    def _install(self) -> None:
+        try:
+            app = app_install.bundled_app()
+            if app is None:
+                raise AppInstallError(app_install.missing_text())
+            done = []
+            for serial in app_install.ready_phones():
+                app_install.install_apk(serial, app.path)
+                done.append(serial)
+        except AppInstallError as exc:
+            messagebox.showerror("Install failed", str(exc), parent=self)
+            return
+        messagebox.showinfo("Installed", "Installed on: " + (", ".join(done) or "no phone") + ".\nOpen the app, then scan the pairing QR.", parent=self)
+        self._refresh()
+
+    def _share(self) -> None:
+        try:
+            answer = self._share_fn()
+        except (ApiError, OSError, AppInstallError) as exc:
+            messagebox.showerror("No link", str(exc), parent=self)
+            return
+        urls = answer.get("urls") or []
+        if not urls:
+            self._link.configure(text="The service listens only on this computer. Add the Tailscale or LAN address first.")
+            return
+        self._link.configure(text="One-time link, valid 10 minutes:\n" + "\n".join(urls))
+        for child in self._qr_frame.winfo_children():
+            child.destroy()
+        matrix = share.qr_matrix(urls[0])
+        if matrix is not None:
+            size = len(matrix) * 4
+            canvas = tk.Canvas(self._qr_frame, width=size, height=size, background="white", highlightthickness=0)
+            canvas.pack()
+            for y, row in enumerate(matrix):
+                for x, dark in enumerate(row):
+                    if dark:
+                        canvas.create_rectangle(x * 4, y * 4, x * 4 + 4, y * 4 + 4, fill="black", outline="")
 
 
 class SupportDialog(tk.Toplevel):

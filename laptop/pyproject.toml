@@ -32,4 +32,4 @@ androsync = "androsync.cli:main"
 include = ["androsync*"]
 
 [tool.setuptools.package-data]
-androsync = ["assets/*.svg", "assets/*.png"]
+androsync = ["assets/*.svg", "assets/*.png", "assets/apk/*.apk", "assets/apk/*.json"]

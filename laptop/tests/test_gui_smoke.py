@@ -343,3 +343,16 @@ def test_share_dialog_builds_and_destroys():
         dialog.destroy()
     finally:
         root.destroy()
+
+
+def test_app_install_dialog_builds_and_destroys():
+    from androsync.gui.dialogs import AppInstallDialog
+
+    root = _make_root()
+    try:
+        dialog = AppInstallDialog(root, share_fn=lambda: {"urls": []})
+        assert isinstance(dialog._name, str)
+        dialog._share()
+        dialog.destroy()
+    finally:
+        root.destroy()

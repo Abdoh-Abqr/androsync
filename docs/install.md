@@ -35,6 +35,19 @@ Check that it works: `androsync devices` lists your phone once USB debugging is 
 
 **From the source code instead** (to change it): clone the repository, then `pipx install ./laptop`.
 
+## Install the phone app from the computer
+
+The release wheel carries the signed `full` APK, so the computer can put the app on a phone:
+
+- `androsync app status` lists each phone adb sees with the app version it has (or "not installed").
+- `androsync app install` installs or updates it on every ready phone (`--phone <serial>` for one, `--apk FILE` for
+  your own file). If the phone has the app from another store, Android refuses the update: uninstall it first.
+- No cable, no adb? `androsync app share` (or Help, "Install the app on a phone..." in the window) makes a one-time link
+  and a QR code. The link works once, for 10 minutes, and only on the addresses the service listens on (Tailscale, or the
+  local network if you added it). Open it on the phone, allow installing from that source, then scan the pairing QR.
+
+A source checkout does not bundle the APK; download it from the Releases page and use `--apk`.
+
 **Start at boot** is off by default. Switch it on with the **Start at boot** box in the window, or
 `androsync service autostart on`. Away from home, install [Tailscale](https://tailscale.com) on the computer and the phone;
 `androsync service install` offers to listen on the Tailscale address and `--ufw` adds the firewall rule.

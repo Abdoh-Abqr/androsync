@@ -63,7 +63,8 @@ The computer can be a laptop, a desktop PC or a server. Full guide: **[docs/inst
 
 ### Install on the phone
 
-Download the APK from the [Releases page](https://github.com/Abdoh-Abqr/androsync/releases) (or build it, see
+From the computer you just set up, `androsync app install` puts the app on a phone that is plugged in, and `androsync app share`
+shows a one-time link and QR code for a phone without a cable. Or download the APK from the [Releases page](https://github.com/Abdoh-Abqr/androsync/releases) (or build it, see
 [Part 2](#part-2---for-developers)). There are two apps, so **which version do I install?**
 
 | Version | Install it if | Where it will be |

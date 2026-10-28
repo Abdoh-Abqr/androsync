@@ -31,6 +31,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 from androsync import config_edit, state
 from androsync.browse import BrowseError, BrowseForbidden, browse_local, browse_remote, mkdir_local, mkdir_remote
+from androsync.app_install import LINK_SECONDS, AppInstallError, ShareLinks, bundled_app, missing_text as app_missing_text
 from androsync.config import Config, ConfigError
 from androsync.conflicts import ConflictsError, clean, list_conflicts, restore
 from androsync.daemon.problems import classify_route, explain_failure
@@ -95,6 +96,8 @@ _ROUTES: list[tuple[str, re.Pattern, str]] = [
     ("GET", re.compile(r"^/v1/runs/(?P<pair>[^/]+)$"), "_h_runs_list"),
     ("POST", re.compile(r"^/v1/undo/(?P<pair>[^/]+)$"), "_h_undo"),
     ("POST", re.compile(r"^/v1/token/rotate$"), "_h_token_rotate"),
+    ("GET", re.compile(r"^/v1/app$"), "_h_app_info"),
+    ("POST", re.compile(r"^/v1/app/share$"), "_h_app_share"),
     ("PUT", re.compile(r"^/v1/laptop$"), "_h_laptop_update"),
     ("PUT", re.compile(r"^/v1/phones/(?P<id>[^/]+)$"), "_h_phone_update"),
     ("POST", re.compile(r"^/v1/agent/event$"), "_h_agent_event"),
@@ -104,6 +107,9 @@ _ROUTES: list[tuple[str, re.Pattern, str]] = [
     ("GET", re.compile(r"^/v1/agent/blob/(?P<id>[^/]+)$"), "_h_agent_blob_get"),
     ("PUT", re.compile(r"^/v1/agent/blob/(?P<id>[^/]+)$"), "_h_agent_blob_put"),
 ]
+
+_INSTALL_PATH = re.compile(r"^/install/(?P<token>[A-Za-z0-9_-]{8,64})/androsync\.apk$")
+APK_FILE_NAME = "androsync.apk"
 
 # Body streaming chunk for agent blobs.
 _BLOB_CHUNK = 1 << 20
@@ -137,7 +143,14 @@ class _Handler(BaseHTTPRequestHandler):
         parsed = urlsplit(self.path)
         path = parsed.path
         status = None
+        log_path = path
         try:
+            install = _INSTALL_PATH.match(path) if method == "GET" else None
+            if install is not None:
+                # The one route without the Bearer token: the random link is the secret, so keep it out of the log.
+                log_path = "/install/<link>/" + APK_FILE_NAME
+                status = self._h_install_download(install.group("token"))
+                return
             if not self._authorized():
                 status = self._send_json(401, {"error": "unauthorized"})
                 return
@@ -152,7 +165,7 @@ class _Handler(BaseHTTPRequestHandler):
                 status = None
         finally:
             if status is not None:
-                self.api._log_request(method, path, status)
+                self.api._log_request(method, log_path, status)
 
     def _authorized(self) -> bool:
         header = self.headers.get("Authorization", "")
@@ -298,6 +311,69 @@ class _Handler(BaseHTTPRequestHandler):
     def _h_phone_update(self, match: re.Match, query: str) -> int:
         phone_id = unquote(match.group("id"))
         return self._save_name(lambda raw, name: config_edit.set_phone(raw, phone_id, name=name))
+
+    # -- the phone app from this computer (Phase W4) -----------------------------------------------------------
+
+    def _h_app_info(self, match: re.Match, query: str) -> int:
+        try:
+            app = bundled_app()
+        except AppInstallError as exc:
+            return self._send_json(500, {"error": str(exc)})
+        if app is None:
+            return self._send_json(200, {"available": False})
+        return self._send_json(
+            200,
+            {
+                "available": True,
+                "version_name": app.version_name,
+                "version_code": app.version_code,
+                "size": app.path.stat().st_size,
+            },
+        )
+
+    def _h_app_share(self, match: re.Match, query: str) -> int:
+        """Make a one-time download link for the bundled APK (a phone without adb scans it from a QR code)."""
+        from androsync.service import build_urls
+
+        try:
+            app = bundled_app()
+        except AppInstallError as exc:
+            return self._send_json(500, {"error": str(exc)})
+        if app is None:
+            return self._send_json(404, {"error": app_missing_text()})
+        token = self.api.share_links.create()
+        path = f"/install/{token}/{APK_FILE_NAME}"
+        urls = [url + path for url in build_urls(self.api._config_loader()) if "127.0.0.1" not in url]
+        return self._send_json(200, {"path": path, "urls": urls, "expires_in": LINK_SECONDS})
+
+    def _h_install_download(self, token: str) -> int:
+        links = self.api.share_links
+        if links.blocked():
+            return self._send_json(429, {"error": "too many attempts"})
+        if not links.consume(token):
+            return self._send_json(404, {"error": "not found"})
+        try:
+            app = bundled_app()
+        except AppInstallError:
+            app = None
+        if app is None:
+            return self._send_json(404, {"error": "not found"})
+        try:
+            size = app.path.stat().st_size
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.android.package-archive")
+            self.send_header("Content-Length", str(size))
+            self.send_header("Content-Disposition", f'attachment; filename="{APK_FILE_NAME}"')
+            self.end_headers()
+            with open(app.path, "rb") as handle:
+                while True:
+                    chunk = handle.read(1 << 16)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+        except (BrokenPipeError, ConnectionResetError) as exc:
+            raise _ClientGone from exc
+        return 200
 
     # -- agent mode: the phone app does the file work (task 37b) ------------------------------------------------
 
@@ -877,6 +953,7 @@ class ApiServer:
         self._config_path = config_path
         # The mailbox for agent mode (task 37b); the daemon passes the one its transports use.
         self.agent: AgentBroker = agent if agent is not None else AgentBroker()
+        self.share_links = ShareLinks()
         self.auto = auto
         self._servers: list[_BoundHTTPServer] = []
         self._threads: list[threading.Thread] = []

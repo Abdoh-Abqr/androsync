@@ -24,6 +24,8 @@ All notable changes to androsync are recorded here. Format loosely follows
 - **Each phone app keeps its own history** (`<pair>@agent-<id>`). A second phone with an empty or different folder can no longer make the first phone's files look deleted, which is what produced "It would delete 738 files on the laptop (100%)" for the Obsidian pair. A pair set to "Any phone" with two apps connected stops and names both.
 - The app sends its name (Settings, "This phone's name"; default: the phone's name or model); `/v1/ping` lists the apps under `agents`, and the pair editor offers them in the Phone row for agent pairs.
 
+- **Install the phone app from the computer**: `androsync app status|install|share`, and Help, "Install the app on a phone..." in the window. The release wheel carries the signed `full` APK (SHA-256 checked). A phone without adb gets a one-time, 10-minute download link with a QR code. See `docs/install.md`.
+
 ### Improved
 - A pair that works over USB or Wi-Fi debugging only now says so first when the phone is connected another way ("This pair works over USB or Wi-Fi debugging only, but the phone is connected over Tailscale right now."), then gives the usual hint. The app also names the connection when it cannot see a phone over adb.
 
